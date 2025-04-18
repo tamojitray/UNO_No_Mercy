@@ -1,0 +1,30 @@
+{
+  "name": "uno_no_mercy",
+  "version": "1.0.0",
+  "description": "UNO Show ‘Em No Mercy",
+  "keywords": [
+    "uno",
+    "no_mercy",
+    "card",
+    "game"
+  ],
+  "homepage": "https://github.com/tamojitray/UNO_No_Mercy#readme",
+  "bugs": {
+    "url": "https://github.com/tamojitray/UNO_No_Mercy/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/tamojitray/UNO_No_Mercy.git"
+  },
+  "license": "ISC",
+  "author": "Tamojit Ray <uno@tamojitray.in>",
+  "type": "module",
+  "main": "app.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "socket.io": "^4.8.1"
+  }
+}
