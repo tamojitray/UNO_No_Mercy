@@ -1,5 +1,3 @@
-__pycache__/
-.env
 .git
+.env
 env/
-test.py
