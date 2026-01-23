@@ -14,6 +14,3 @@ EXPOSE 8000
 
 # Running the app.py
 CMD ["python3", "app.py"]
-
-
-#Need to find a way to create a venv using Docker

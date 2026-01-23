@@ -442,6 +442,12 @@ document.addEventListener("DOMContentLoaded", function () {
                 
             });
 
+            socket.on("room_full", function (data) {
+                console.log("Room full event received:", data);
+                alert(data.message);
+                window.location.href = "/";
+            });
+
             socket.on("room_deleted", function (data) {
                 console.log("Room deleted event received:", data);
                 alert(data.message);

@@ -36,6 +36,10 @@ deck = [
     {'color': 'Red', 'type': 'Discard All of Color'},
     {'color': 'Red', 'type': 'Discard All of Color'},
     {'color': 'Red', 'type': 'Discard All of Color'},
+    # Aditional Cards from Extension Pack
+    # {'color': 'Red', 'type': '10's Play Again'},
+    # {'color': 'Red', 'type': '10's Play Again'}
+
     # Green Cards
     {'color': 'Green', 'type': '0'},
     {'color': 'Green', 'type': '0'},
@@ -73,6 +77,10 @@ deck = [
     {'color': 'Green', 'type': 'Discard All of Color'},
     {'color': 'Green', 'type': 'Discard All of Color'},
     {'color': 'Green', 'type': 'Discard All of Color'},
+    # Additional Cards from Extension Pack
+    # {'color': 'Green', 'type': '10's Play Again'},
+    # {'color': 'Green', 'type': '10's Play Again'}
+
     # Blue Cards
     {'color': 'Blue', 'type': '0'},
     {'color': 'Blue', 'type': '0'},
@@ -110,6 +118,10 @@ deck = [
     {'color': 'Blue', 'type': 'Discard All of Color'},
     {'color': 'Blue', 'type': 'Discard All of Color'},
     {'color': 'Blue', 'type': 'Discard All of Color'},
+    # Additional Cards from Extension Pack
+    # {'color': 'Blue', 'type': '10's Play Again'},
+    # {'color': 'Blue', 'type': '10's Play Again'}
+
     # Yellow Cards
     {'color': 'Yellow', 'type': '0'},
     {'color': 'Yellow', 'type': '0'},
@@ -147,6 +159,10 @@ deck = [
     {'color': 'Yellow', 'type': 'Discard All of Color'},
     {'color': 'Yellow', 'type': 'Discard All of Color'},
     {'color': 'Yellow', 'type': 'Discard All of Color'},
+    # Additional Cards from Extension Pack
+    # {'color': 'Yellow', 'type': '10's Play Again'},
+    # {'color': 'Yellow', 'type': '10's Play Again'}
+
     # Wild Cards
     {'color': 'Wild', 'type': 'Reverse Draw Four'},
     {'color': 'Wild', 'type': 'Reverse Draw Four'},
@@ -171,5 +187,23 @@ deck = [
     {'color': 'Wild', 'type': 'Color Roulette'},
     {'color': 'Wild', 'type': 'Color Roulette'},
     {'color': 'Wild', 'type': 'Color Roulette'},
-    {'color': 'Wild', 'type': 'Color Roulette'}
+    {'color': 'Wild', 'type': 'Color Roulette'},
+    # Additional Cards from Extension Pack
+    # {'color': 'Wild', 'type': 'Wild Discard All'},
+    # {'color': 'Wild', 'type': 'Wild Discard All'},
+    # {'color': 'Wild', 'type': 'Wild Discard All'},
+    # {'color': 'Wild', 'type': 'Wild Discard All'},
+    # {'color': 'Wild', 'type': 'Wild Discard All'},
+    # {'color': 'Wild', 'type': 'Wild Discard All'},
+    # {'color': 'Wild', 'type': 'Wild Discard All'},
+    # {'color': 'Wild', 'type': 'Wild Discard All'},
+    # {'color': 'Wild', 'type': 'Wild Reverse Draw Eight'},
+    # {'color': 'Wild', 'type': 'Wild Reverse Draw Eight'},
+    # {'color': 'Wild', 'type': 'Wild Reverse Draw Eight'},
+    # {'color': 'Wild', 'type': 'Wild Reverse Draw Eight'},
+    # {'color': 'Wild', 'type': 'Wild Final Attack'},
+    # {'color': 'Wild', 'type': 'Wild Final Attack'},
+    # {'color': 'Wild', 'type': 'Wild Sudden Death'},
+    # {'color': 'Wild', 'type': 'Wild Sudden Death'}
+
 ]
