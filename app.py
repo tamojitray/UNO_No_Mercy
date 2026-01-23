@@ -55,20 +55,20 @@ def delayed_removal(token, stop_event, username, room_code, game):
             return
         time.sleep(1)
 
-    with app.app_context():    
+    with app.app_context():
         # Checking if room and username exists before removing
         if room_code in rooms and username in rooms[room_code]['players']:
             # Remove the disconnected player
             rooms[room_code]['players'].remove(username)
 
-            if len(rooms[room_code]['players']) == 1:
+            if len(rooms[room_code]['players']) == 1 and game is not None:
                 # Notify the remaining player
                 #Show alert to the remaining player that the game is over
                 socketio.emit("game_over", {
-                    "winner": rooms[room_code]['players'][0], 
+                    "winner": rooms[room_code]['players'][0],
                     "discard_top": game.top_card()
                 }, room=room_code)
-                rooms[room_code]['started'] = False               
+                rooms[room_code]['started'] = False
 
             # Case 1: Room is now empty
             if not rooms[room_code]['players']:
@@ -82,14 +82,16 @@ def delayed_removal(token, stop_event, username, room_code, game):
         if token in disconnect_timers:
             del disconnect_timers[token]
 
-        game.players.remove(username)
-        game.hands.pop(username)
-        print(f"User {token} permanently removed after 30 sec of inactivity.")            
+        # Only manipulate game object if it exists
+        if game is not None and username in game.players:
+            game.players.remove(username)
+            game.hands.pop(username)
+        print(f"User {token} permanently removed after 30 sec of inactivity.")
 
-        if room_code in rooms and rooms[room_code]['started'] == True:                                
+        if room_code in rooms and rooms[room_code]['started'] == True and game is not None:
             socketio.emit("update_players", {"players": game.players, "game_started": rooms[room_code]['started']}, room=room_code)
         if room_code in rooms and rooms[room_code]['started'] == False:
-            socketio.emit("update_players", {"players": rooms[room_code]['players'], "game_started": rooms[room_code]['started']}, room=room_code)    
+            socketio.emit("update_players", {"players": rooms[room_code]['players'], "game_started": rooms[room_code]['started']}, room=room_code)
 
         print(f"Thread for {token} stopped")
 
@@ -163,6 +165,8 @@ def handle_special_effects(game, card, player, color, room_code):
                 socketio.emit("select_player_for_swap", {"players": other_players}, room=sid)
                 break
 
+
+
 @app.route('/')
 def index():
     return render_template('main.html')
@@ -193,7 +197,10 @@ def join_room_route():
         if rooms[room_code]['started']:
             return jsonify({'status': 'game_started'})
         
-        if username in rooms[room_code]['players']:  
+        if len(rooms[room_code]['players']) >= 6:
+            return jsonify({'status': 'room_full'})
+        
+        if username in rooms[room_code]['players']:
             return jsonify({'status': 'duplicate'})
         
         session_token = generate_session_token()
@@ -203,7 +210,7 @@ def join_room_route():
         response = make_response(jsonify({'status': 'joined', 'session_token': session_token}))
         return response
     else:
-        return jsonify({'status': 'room_not_found'})   
+        return jsonify({'status': 'room_not_found'})
 
 @app.route('/room/<room_code>')
 def room(room_code):
@@ -294,6 +301,8 @@ def debug():
         "user_sockets": user_sockets,
         "disconnect_timers": disconnect_timers_info
     })
+
+
 
 @socketio.on("draw_card")
 def handle_draw_card(data):
@@ -504,8 +513,6 @@ def handle_draw_card(data):
             "uno_flags": game.uno_flags
         }, room=room_code)
             
-
-
 # Add to handle_play_card function
 @socketio.on("play_card")
 def handle_play_card(data):
@@ -759,8 +766,6 @@ def handle_call_uno(data):
         else:
             emit("play_error", {"message": "You can't call uno now"}, room=request.sid)
 
-
-
 @socketio.on("catch_uno")
 def handle_catch_uno(data):
     room_code = data.get('room')
@@ -899,10 +904,14 @@ def handle_join_room(data):
     print(session_token)
     print(user_sockets)
     print(sessions)
-    print(rooms)      
+    print(rooms)
 
     if room_code in rooms and not rooms[room_code]['started']:
         if username not in rooms[room_code]['players']:
+            # Check if room is full (max 6 players)
+            if len(rooms[room_code]['players']) >= 6:
+                emit("room_full", {"message": "Room is full! Maximum 6 players allowed."}, room=request.sid)
+                return
             rooms[room_code]['players'].append(username)
 
     if session_token in disconnect_timers:

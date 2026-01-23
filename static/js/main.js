@@ -105,6 +105,10 @@ document.getElementById('join-room-submit').addEventListener('click', function()
             window.location.href = `/room/${roomCode}`;
         } else if (data.status === 'duplicate') {
             showError("Name already exists in the room. Please choose another name.");
+        } else if (data.status === 'room_full') {
+            showError("Room is full! Maximum 6 players allowed.");
+        } else if (data.status === 'game_started') {
+            showError("Game has already started. Cannot join.");
         } else {
             showError("Room not found.");
         }
