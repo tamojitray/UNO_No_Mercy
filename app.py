@@ -324,6 +324,11 @@ def handle_draw_card(data):
         emit("play_error", {"message": "It's not your turn!"}, room=request.sid)
         return
 
+    if game.roulette and game.awaiting_color_choice:
+        emit("roulette", {}, room=request.sid)
+        emit("play_error", {"message": "You must select a color for the Roulette before drawing!"}, room=request.sid)
+        return
+
     if len(game.hands[player]) > 1:
             game.reset_uno(player)
 
@@ -588,6 +593,10 @@ def handle_play_card(data):
     
     if game.awaiting_player_choice == True:
         emit("play_error", {"message": "You must select a player to swap hands with!"}, room=request.sid)
+        return
+        
+    if game.roulette and game.awaiting_color_choice:
+        emit("play_error", {"message": "You must select a color for the Roulette before drawing!"}, room=request.sid)
         return
     
     if len(game.hands[player]) >= 25:

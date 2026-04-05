@@ -225,7 +225,7 @@ export default function Game({ roomCode, username, sessionToken, setView, initia
       setView('room');
   };
 
-  const isMyTurn = !gameOver && stats.current_player === username;
+  const isMyTurn = !gameOver && stats.current_player === username && !choosingColor && !choosingPlayer;
 
   const rawPlayers = stats.players && stats.players.length > 0 ? stats.players : Object.keys(stats.player_hands || {});
   const myIndex = rawPlayers.indexOf(username);
@@ -398,7 +398,7 @@ export default function Game({ roomCode, username, sessionToken, setView, initia
       {choosingColor && (
          <div 
              id="color-picker-backdrop"
-             className="fixed inset-0 bg-black/80 z-[100] flex items-center justify-center p-4"
+             className="fixed inset-0 bg-black/80 z-[9999] flex items-center justify-center p-4"
              onClick={(e) => {
                  if (e.target.id === "color-picker-backdrop" && pendingPlayInfo) {
                      setChoosingColor(false);
