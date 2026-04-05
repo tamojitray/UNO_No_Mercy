@@ -2,7 +2,9 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { socket } from '../socket';
 
-const API_BASE = window.location.protocol + "//" + window.location.hostname + ":8000";
+const API_BASE = import.meta.env.PROD 
+  ? window.location.origin 
+  : window.location.protocol + "//" + window.location.hostname + ":8000";
 
 export default function Room({ roomCode, username, sessionToken, setView }) {
   const [players, setPlayers] = useState([]);
