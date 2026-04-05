@@ -1,0 +1,53 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-background text-slate-100 font-sans antialiased min-h-screen;
+    background-image: 
+      radial-gradient(at 0% 0%, hsla(253,16%,7%,1) 0, transparent 50%), 
+      radial-gradient(at 50% 0%, hsla(225,39%,30%,0.2) 0, transparent 50%), 
+      radial-gradient(at 100% 0%, hsla(339,49%,30%,0.2) 0, transparent 50%);
+    background-attachment: fixed;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-surface/60 backdrop-blur-md border border-white/10 shadow-xl rounded-2xl;
+  }
+  
+  .btn-primary {
+    @apply px-6 py-3 bg-primary hover:bg-blue-600 text-white font-semibold rounded-xl transition-all shadow-lg shadow-blue-500/30 hover:shadow-blue-500/50 active:scale-95 disabled:opacity-50 disabled:pointer-events-none;
+  }
+
+  .stacked-card {
+    /* Magic negative margin to stack cards closely horizontally */
+    @apply -ml-10 transition-all duration-300 ease-out preserve-3d cursor-pointer hover:-translate-y-4 hover:scale-[1.15] hover:z-50;
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
+  }
+  
+  .stacked-card:first-child {
+    @apply ml-0;
+  }
+
+  .card-container {
+    @apply flex flex-row items-center justify-center p-6 w-full max-w-full overflow-x-auto;
+    scrollbar-width: thin;
+    scrollbar-color: rgba(255,255,255,0.2) transparent;
+  }
+  
+  /* Utilities for the scrollbar styling if needed */
+  .card-container::-webkit-scrollbar {
+    height: 8px;
+  }
+  .card-container::-webkit-scrollbar-thumb {
+    background-color: rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+  }
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}

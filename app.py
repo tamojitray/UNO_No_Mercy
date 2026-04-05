@@ -37,11 +37,11 @@ def start_thread(token, username, room_code, game):
         thread.start()
 
 def stop_thread(token):
-    if token in disconnect_timers:
+    timer_data = disconnect_timers.pop(token, None)
+    if timer_data:
         print(f"Cancelled removal of {token}...")
-        disconnect_timers[token][1].set()  # Set the stop event
-        disconnect_timers[token][0].join()  # Wait for the thread to finish
-        del disconnect_timers[token]
+        timer_data[1].set()  # Set the stop event
+        timer_data[0].join()  # Wait for the thread to finish
     else:
         print(f"{token} not found.")
 
@@ -79,8 +79,7 @@ def delayed_removal(token, stop_event, username, room_code, game):
         # Cleanup session and timers
         if token in sessions:
             del sessions[token]
-        if token in disconnect_timers:
-            del disconnect_timers[token]
+        disconnect_timers.pop(token, None)
 
         # Only manipulate game object if it exists
         if game is not None and username in game.players:
@@ -270,7 +269,8 @@ def start_game():
                 "player_hands": {player: len(game.hands[player]) for player in game.players},  # Add hand sizes
                 "draw_deck_size": len(game.deck),
                 "discard_pile_size": len(game.discard_pile),
-                "uno_flags": game.uno_flags
+                "uno_flags": game.uno_flags,
+            "players": game.players
             }, room=room_code)
             
             return jsonify({'status': 'started'})
@@ -360,7 +360,8 @@ def handle_draw_card(data):
             "player_hands": {player: len(game.hands[player]) for player in game.players},  # Add hand sizes
             "draw_deck_size": len(game.deck),
             "discard_pile_size": len(game.discard_pile),
-            "uno_flags": game.uno_flags
+            "uno_flags": game.uno_flags,
+            "players": game.players
         }, room=room_code)
             
         
@@ -422,7 +423,8 @@ def handle_draw_card(data):
                     "player_hands": {player: len(game.hands[player]) for player in game.players},  # Add hand sizes
                     "draw_deck_size": len(game.deck),
                     "discard_pile_size": len(game.discard_pile),
-                    "uno_flags": game.uno_flags
+                    "uno_flags": game.uno_flags,
+            "players": game.players
                 }, room=room_code)
                     
                 
@@ -466,7 +468,8 @@ def handle_draw_card(data):
                     "player_hands": {player: len(game.hands[player]) for player in game.players},  # Add hand sizes
                     "draw_deck_size": len(game.deck),
                     "discard_pile_size": len(game.discard_pile),
-                    "uno_flags": game.uno_flags
+                    "uno_flags": game.uno_flags,
+            "players": game.players
                 }, room=room_code)           
 
                 return
@@ -479,10 +482,57 @@ def handle_draw_card(data):
         if game.draw_pending == False and game.draw_started == False:
             drawn_card = game.draw_card(player)
             if game.roulette == True:
-                socketio.emit("roulette_draw", {'card_drawn' : drawn_card}, room=room_code)
+                socketio.emit("roulette_draw", {'card_drawn' : drawn_card, 'player': player}, room=room_code)
                 if drawn_card['color'] == game.playing_color:
                     game.roulette = False
                     game.next_player()
+
+        if len(game.hands[player]) >= 25:
+            if len(game.players) == 2:
+                rooms[room_code]['started'] = False
+                emit("game_over", {
+                    "winner": game.players[1], 
+                    "discard_top": game.top_card()
+                }, room=room_code)
+                return
+            game.deck = game.deck + game.hands[player]
+            random.shuffle(game.deck)
+            
+            game.hands[player] = []
+            last_current_player = game.current_players_turn()
+            if last_current_player == player:
+                game.next_player()
+            game.players.remove(player)
+            game.hands.pop(player)
+
+            game.draw_pending = False
+            game.draw_started = False
+            game.roulette = False
+            game.stacked_cards = 0
+
+            socketio.emit("player_disqualified", {"player": player}, room=room_code)
+            socketio.emit("update_players", {"players": game.players, "game_started": rooms[room_code]['started']}, room=room_code)
+
+            socketio.emit("game_update", {
+                "current_player": game.current_players_turn(),
+                "discard_top": game.top_card(),
+                "cards_left": game.cards_remaining(),
+                "stacked_cards": game.stacked_cards,  
+                "playing_color": game.playing_color,  
+                "player_hands": {p: len(game.hands[p]) for p in game.players},  
+                "draw_deck_size": len(game.deck),
+                "discard_pile_size": len(game.discard_pile),
+                "uno_flags": game.uno_flags,
+            "players": game.players
+            }, room=room_code)
+                
+            emit("your_hand", {
+                "hand": [],
+                "discard_top": game.top_card(),
+                "cards_left": game.cards_remaining()
+            }, room=request.sid)
+
+            return
 
 
         # Emit updates
@@ -510,7 +560,8 @@ def handle_draw_card(data):
             "player_hands": {player: len(game.hands[player]) for player in game.players},  # Add hand sizes
             "draw_deck_size": len(game.deck),
             "discard_pile_size": len(game.discard_pile),
-            "uno_flags": game.uno_flags
+            "uno_flags": game.uno_flags,
+            "players": game.players
         }, room=room_code)
             
 # Add to handle_play_card function
@@ -569,7 +620,8 @@ def handle_play_card(data):
             "player_hands": {player: len(game.hands[player]) for player in game.players},  # Add hand sizes
             "draw_deck_size": len(game.deck),
             "discard_pile_size": len(game.discard_pile),
-            "uno_flags": game.uno_flags
+            "uno_flags": game.uno_flags,
+            "players": game.players
         }, room=room_code)
             
         
@@ -667,7 +719,8 @@ def handle_play_card(data):
             "player_hands": {player: len(game.hands[player]) for player in game.players},  # Add hand sizes
             "draw_deck_size": len(game.deck),
             "discard_pile_size": len(game.discard_pile),
-            "uno_flags": game.uno_flags
+            "uno_flags": game.uno_flags,
+            "players": game.players
         }, room=room_code)
             
         
@@ -743,7 +796,8 @@ def handle_call_uno(data):
                 "player_hands": {player: len(game.hands[player]) for player in game.players},
                 "draw_deck_size": len(game.deck),
                 "discard_pile_size": len(game.discard_pile),
-                "uno_flags": game.uno_flags
+                "uno_flags": game.uno_flags,
+            "players": game.players
             }, room=room_code)
 
         elif len(game.hands[player]) == 1:
@@ -759,7 +813,8 @@ def handle_call_uno(data):
                     "player_hands": {player: len(game.hands[player]) for player in game.players},
                     "draw_deck_size": len(game.deck),
                     "discard_pile_size": len(game.discard_pile),
-                    "uno_flags": game.uno_flags
+                    "uno_flags": game.uno_flags,
+            "players": game.players
                 }, room=room_code)
             else:
                 emit("play_error", {"message": "You have already called UNO!"}, room=request.sid)
@@ -811,7 +866,8 @@ def handle_catch_uno(data):
                 "player_hands": {player: len(game.hands[player]) for player in game.players},
                 "draw_deck_size": len(game.deck),
                 "discard_pile_size": len(game.discard_pile),
-                "uno_flags": game.uno_flags
+                "uno_flags": game.uno_flags,
+            "players": game.players
             }, room=room_code)
         else:
             emit("play_error", {"message": f"{target_player} already called UNO or doesn't have 1 card!"}, room=request.sid)
@@ -836,7 +892,8 @@ def handle_color_selected(data):
             "player_hands": {player: len(game.hands[player]) for player in game.players},  # Add hand sizes
             "draw_deck_size": len(game.deck),
             "discard_pile_size": len(game.discard_pile),
-            "uno_flags": game.uno_flags
+            "uno_flags": game.uno_flags,
+            "players": game.players
         }, room=room_code)
 
 @socketio.on("check_roulette_state")
@@ -892,7 +949,8 @@ def handle_player_selected_for_swap(data):
             "player_hands": {player: len(game.hands[player]) for player in game.players},
             "draw_deck_size": len(game.deck),
             "discard_pile_size": len(game.discard_pile),
-            "uno_flags": game.uno_flags
+            "uno_flags": game.uno_flags,
+            "players": game.players
         }, room=room_code)
 
 @socketio.on("join_room")
@@ -954,7 +1012,8 @@ def handle_join_room(data):
             "player_hands": {player: len(game.hands[player]) for player in game.players},  # Add hand sizes
             "draw_deck_size": len(game.deck),
             "discard_pile_size": len(game.discard_pile),
-            "uno_flags": game.uno_flags
+            "uno_flags": game.uno_flags,
+            "players": game.players
         }, room=room_code)
         
         # Send updated hand to player
@@ -1028,7 +1087,8 @@ def handle_leave_room(data):
     print("Updated Sessions:", sessions)
     print("Updated Rooms:", rooms)    
     print(rooms)
-    emit("update_players", {"players": rooms.get(room_code, []), "game_started": rooms[room_code]['started']}, room=room_code)
+    if room_code in rooms:
+        emit("update_players", {"players": rooms[room_code]['players'], "game_started": rooms[room_code]['started']}, room=room_code)
     
 @socketio.on("connect")
 def handle_connect():
@@ -1057,16 +1117,9 @@ def handle_disconnect():
         print("Invalid user data found, skipping cleanup.")
         return
     
-    if room_code in rooms:
-        if rooms[room_code]['players'][0] == username and rooms[room_code]['started'] == False:
-            print("Room leader left, so deleting room")
-            emit("room_deleted", {"message": "Game ended as a player left"}, room=room_code)
-            del rooms[room_code]
-            del sessions[session_token]
-            return
-    else:
+    if room_code not in rooms:
         del sessions[session_token]
-        print("Room leader left, so no room left")
+        print("Room not found, clearing session")
         return 
 
     game = rooms[room_code].get('game')  
