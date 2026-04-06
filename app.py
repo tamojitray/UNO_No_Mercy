@@ -398,6 +398,9 @@ def handle_draw_card(data):
             if len(game.hands[player]) >= 25:
                 if len(game.players) == 2:
                     rooms[room_code]['started'] = False
+                    game.stacked_cards = 0
+                    game.draw_pending = False
+                    game.draw_started = False
                     emit("game_over", {
                         "winner": game.players[1], 
                         "discard_top": game.top_card()
@@ -495,6 +498,9 @@ def handle_draw_card(data):
         if len(game.hands[player]) >= 25:
             if len(game.players) == 2:
                 rooms[room_code]['started'] = False
+                game.stacked_cards = 0
+                game.draw_pending = False
+                game.draw_started = False
                 emit("game_over", {
                     "winner": game.players[1], 
                     "discard_top": game.top_card()

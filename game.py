@@ -23,7 +23,9 @@ class Unogame:
     def _init_discard_pile(self):
         if self.deck:
             card = self.deck.pop()
-            while card['color'] == 'Wild':
+            # Game must start with a number card (0-9). 
+            # If color is Wild or type is not a digit, reshuffle.
+            while card['color'] == 'Wild' or not card['type'].isdigit():
                 self.deck.append(card)
                 random.shuffle(self.deck)
                 card = self.deck.pop()

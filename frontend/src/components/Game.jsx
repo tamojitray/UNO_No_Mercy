@@ -25,6 +25,7 @@ export default function Game({ roomCode, username, sessionToken, setView, initia
   const [showCatchHint, setShowCatchHint] = useState(true);
   const [drawnRouletteCards, setDrawnRouletteCards] = useState([]);
   const rouletteTimeoutRef = useRef(null);
+  const stackDrawTimeoutsRef = useRef([]);
 
   useEffect(() => {
     if (initialHandData) {
@@ -115,10 +116,33 @@ export default function Game({ roomCode, username, sessionToken, setView, initia
     const onGameOver = (data) => {
       setGameOver({ winner: data.winner });
       if (data.discard_top) setDiscardTop(data.discard_top);
+      // Clean up any pending "Draw All" loops
+      stackDrawTimeoutsRef.current.forEach(t => clearTimeout(t));
+      stackDrawTimeoutsRef.current = [];
     };
 
     const onGameStarted = () => {
       setGameOver(null);
+      // Clean up any pending "Draw All" loops
+      stackDrawTimeoutsRef.current.forEach(t => clearTimeout(t));
+      stackDrawTimeoutsRef.current = [];
+      setHand([]);
+      setDiscardTop(null);
+      setChoosingColor(false);
+      setChoosingPlayer(null);
+      setPendingPlayInfo(null);
+      setDrawnRouletteCards([]);
+      setStats({
+        current_player: '',
+        cards_left: 0,
+        stacked_cards: 0,
+        playing_color: '',
+        player_hands: {},
+        draw_deck_size: 0,
+        discard_pile_size: 0,
+        uno_flags: {},
+        players: []
+      });
     };
 
     const onRouletteDraw = (data) => {
@@ -307,10 +331,16 @@ export default function Game({ roomCode, username, sessionToken, setView, initia
                 <button 
                     onClick={(e) => {
                         e.stopPropagation();
-                        Array.from({ length: stats.stacked_cards }).forEach((_, i) => {
-                            setTimeout(() => {
+                        // Prevent multiple clicks spawning multiple loops
+                        if (stackDrawTimeoutsRef.current.length > 0) return;
+
+                        const numToDraw = stats.stacked_cards;
+                        Array.from({ length: numToDraw }).forEach((_, i) => {
+                            const t = setTimeout(() => {
                                 socket.emit('draw_card', { room: roomCode });
+                                stackDrawTimeoutsRef.current = stackDrawTimeoutsRef.current.filter(x => x !== t);
                             }, i * 150);
+                            stackDrawTimeoutsRef.current.push(t);
                         });
                     }}
                     className="absolute -bottom-10 bg-gradient-to-r from-red-600 to-red-800 text-white font-black text-[10px] sm:text-xs px-3 py-1 rounded-lg shadow-xl shadow-red-900/50 border border-red-400 hover:scale-105 active:scale-95 transition animate-pulse whitespace-nowrap z-30"
