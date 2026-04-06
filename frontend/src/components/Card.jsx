@@ -22,7 +22,7 @@ export default function Card({ card, index, onPlay, isPlayable, stacked, noOverl
       <img 
         src={imageUrl} 
         alt={`${card.color} ${card.type || card.value}`} 
-        className="w-24 md:w-32 lg:w-40 rounded-xl"
+        className="w-24 sm:w-28 md:w-32 lg:w-40 rounded-xl"
       />
       {!isPlayable && !noOverlay && (
         <div className="absolute inset-0 bg-black/40 rounded-xl rounded-xl transition-all group-hover:bg-transparent pointer-events-none" />

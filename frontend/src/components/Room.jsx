@@ -54,21 +54,21 @@ export default function Room({ roomCode, username, sessionToken, setView }) {
 
   return (
     <div className="glass-panel p-8 w-full max-w-2xl animate-slide-up">
-      <div className="flex justify-between items-center mb-8">
+      <div className="flex justify-between items-center mb-6 md:mb-8">
         <div>
-          <h2 className="text-3xl font-display font-bold text-white tracking-wide">
+          <h2 className="text-2xl md:text-3xl font-display font-bold text-white tracking-wide">
             Waiting Room
           </h2>
           <button 
             onClick={leaveRoom}
-            className="mt-2 text-sm text-red-400 hover:text-red-300 transition-colors"
+            className="mt-2 text-xs md:text-sm text-red-400 hover:text-red-300 transition-colors"
           >
             ← Leave Room
           </button>
         </div>
-        <div className="bg-slate-900 px-4 py-2 rounded-lg border border-slate-700">
-          <span className="text-slate-400 text-sm uppercase tracking-wider block text-center">Room Code</span>
-          <span className="text-primary font-mono text-2xl font-black">{roomCode}</span>
+        <div className="bg-slate-900 px-3 md:px-4 py-1.5 md:py-2 rounded-lg border border-slate-700">
+          <span className="text-slate-400 text-[10px] md:text-sm uppercase tracking-wider block text-center">Room Code</span>
+          <span className="text-primary font-mono text-xl md:text-2xl font-black">{roomCode}</span>
         </div>
       </div>
 
@@ -96,7 +96,7 @@ export default function Room({ roomCode, username, sessionToken, setView }) {
           <button 
             onClick={handleStartGame}
             disabled={loading || players.length < 2}
-            className="btn-primary w-full md:w-auto px-12 text-lg shadow-primary/40 shadow-xl"
+            className="btn-primary w-full md:w-auto px-12 text-base md:text-lg shadow-primary/40 shadow-xl"
           >
             {loading ? 'Starting...' : 'Start Game'}
           </button>

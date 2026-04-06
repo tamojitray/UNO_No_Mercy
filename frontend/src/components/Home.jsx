@@ -74,8 +74,8 @@ export default function Home({ setView, setRoomCode, setUsername, setSessionToke
   };
 
   return (
-    <div className="glass-panel p-8 md:p-12 w-full max-w-md animate-slide-up flex flex-col items-center">
-      <h1 className="text-5xl font-display font-black text-transparent bg-clip-text bg-gradient-to-r from-unoRed via-unoYellow to-unoBlue mb-8 tracking-tight">
+    <div className="glass-panel p-6 md:p-12 w-full max-w-md animate-slide-up flex flex-col items-center">
+      <h1 className="text-4xl md:text-5xl font-display font-black text-transparent bg-clip-text bg-gradient-to-r from-unoRed via-unoYellow to-unoBlue mb-8 tracking-tight">
         NO MERCY
       </h1>
       
@@ -97,7 +97,7 @@ export default function Home({ setView, setRoomCode, setUsername, setSessionToke
           <button 
             onClick={handleCreateRoom}
             disabled={loading}
-            className="w-full btn-primary font-bold text-lg"
+            className="w-full btn-primary font-bold text-sm md:text-lg"
           >
             Create New Game
           </button>

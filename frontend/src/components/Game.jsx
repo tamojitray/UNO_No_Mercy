@@ -261,7 +261,7 @@ export default function Game({ roomCode, username, sessionToken, setView, initia
   }
 
   return (
-    <div className="w-full max-w-6xl mx-auto h-[90vh] flex flex-col justify-between animate-slide-up relative">
+    <div className="w-full max-w-6xl mx-auto h-[94vh] md:h-[90vh] flex flex-col justify-between animate-slide-up relative overflow-hidden">
       
       {showCatchHint && (
          <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[100] bg-blue-600/90 backdrop-blur-md text-white text-xs md:text-sm px-6 py-3 rounded-full flex items-center justify-between gap-4 shadow-2xl shadow-blue-500/50 animate-bounce border border-blue-400">
@@ -276,11 +276,11 @@ export default function Game({ roomCode, username, sessionToken, setView, initia
            const cnt = stats.player_hands[player];
            const isTurn = stats.current_player === player;
            return (
-             <button 
-                key={player} 
-                onClick={() => handleCatchUno(player)}
-                className={`relative glass-panel px-4 py-2 mt-2 flex flex-col items-center outline-none focus:outline-none transition cursor-pointer hover:scale-105 ${cnt === 1 && !stats.uno_flags[player] ? 'hover:bg-red-900/40 hover:ring-2 hover:ring-unoRed animate-pulse shadow-unoRed/40' : 'hover:bg-white/10'} ${isTurn && !(cnt === 1 && !stats.uno_flags[player]) ? 'ring-2 ring-primary bg-primary/20 shadow-xl shadow-primary/20' : ''}`}
-             >
+              <button 
+                 key={player} 
+                 onClick={() => handleCatchUno(player)}
+                 className={`relative glass-panel px-3 md:px-4 py-1.5 md:py-2 mt-2 flex flex-col items-center outline-none focus:outline-none transition cursor-pointer hover:scale-105 ${cnt === 1 && !stats.uno_flags[player] ? 'hover:bg-red-900/40 hover:ring-2 hover:ring-unoRed animate-pulse shadow-unoRed/40' : 'hover:bg-white/10'} ${isTurn && !(cnt === 1 && !stats.uno_flags[player]) ? 'ring-2 ring-primary bg-primary/20 shadow-xl shadow-primary/20' : ''}`}
+              >
                  {orderedOpponents.length > 1 && idx === 0 && (
                      <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-2 py-0.5 bg-blue-500 rounded-md text-[10px] font-bold text-white tracking-widest shadow-md">NEXT</div>
                  )}
@@ -315,12 +315,12 @@ export default function Game({ roomCode, username, sessionToken, setView, initia
       )}
 
       {/* Center - Play Area */}
-      <div className="flex-1 flex flex-col md:flex-row items-center justify-center gap-8 z-10">
+      <div className="flex-1 flex flex-row items-center justify-center gap-2 sm:gap-8 z-10 px-2 min-h-0">
          
-         <div className="flex flex-col items-center space-y-2 relative">
-            <span className="text-xs uppercase tracking-widest text-slate-400 font-bold">Deck ({stats.draw_deck_size})</span>
+         <div className="flex flex-col items-center space-y-1 relative">
+            <span className="text-[10px] md:text-xs uppercase tracking-widest text-slate-400 font-bold">Deck ({stats.draw_deck_size})</span>
             <div 
-                className={`relative w-24 md:w-32 lg:w-40 rounded-xl cursor-pointer shadow-xl shadow-black/60 transition ${isMyTurn ? 'hover:scale-105 hover:ring-4 hover:ring-primary hover:shadow-primary/50' : 'opacity-70'}`}
+                className={`relative w-16 sm:w-24 md:w-32 lg:w-40 rounded-xl cursor-pointer shadow-xl shadow-black/60 transition ${isMyTurn ? 'hover:scale-105 hover:ring-4 hover:ring-primary hover:shadow-primary/50' : 'opacity-70'}`}
                 style={{ aspectRatio: '2/3' }}
                 onClick={isMyTurn ? handleDrawCard : undefined}
             >
@@ -350,35 +350,35 @@ export default function Game({ roomCode, username, sessionToken, setView, initia
             )}
          </div>
 
-         <div className="flex flex-col items-center space-y-2">
-            <span className="text-xs uppercase tracking-widest text-slate-400 font-bold">Discard Pile ({stats.discard_pile_size})</span>
+         <div className="flex flex-col items-center space-y-1">
+            <span className="text-[10px] md:text-xs uppercase tracking-widest text-slate-400 font-bold">Discard ({stats.discard_pile_size})</span>
             {discardTop && (
                <Card card={discardTop} stacked={false} isPlayable={false} noOverlay={true} />
             )}
          </div>
 
          {/* Game Stats Info block */}
-         <div className="glass-panel p-4 flex flex-col space-y-2 ml-4">
-             <div className="text-sm">
-                <span className="text-slate-400">Current Turn:</span> <br/>
-                <span className={`text-xl font-bold ${isMyTurn ? 'text-primary' : 'text-white'}`}>{stats.current_player}</span>
+         <div className="glass-panel p-1.5 md:p-4 flex flex-col space-y-0.5 sm:space-y-2 ml-1 sm:ml-4">
+             <div className="text-[9px] md:text-sm">
+                <span className="text-slate-400 leading-tight">Turn:</span> <br className="hidden sm:block"/>
+                <span className={`text-xs md:text-xl font-bold truncate block max-w-[60px] sm:max-w-none ${isMyTurn ? 'text-primary' : 'text-white'}`}>{stats.current_player}</span>
              </div>
              {stats.playing_color && (
-                <div className="text-sm mt-2">
-                    <span className="text-slate-400">Color:</span> <br/>
-                    <span className="font-bold flex items-center gap-2">
-                        <span className="w-3 h-3 rounded-full" style={{ backgroundColor: getHexForColor(stats.playing_color) }}></span>
-                        {stats.playing_color}
+                <div className="text-[9px] md:text-sm">
+                    <span className="text-slate-400 leading-tight">Color:</span> <br className="hidden sm:block"/>
+                    <span className="font-bold flex items-center gap-1 sm:gap-2">
+                        <span className="w-2 h-2 sm:w-3 sm:h-3 rounded-full" style={{ backgroundColor: getHexForColor(stats.playing_color) }}></span>
+                        <span className="text-[10px] sm:text-base">{stats.playing_color}</span>
                     </span>
                  </div>
              )}
              {stats.stacked_cards > 0 && (
-                <div className="text-sm text-unoRed font-bold mt-2 animate-bounce">
-                    Stack: +{stats.stacked_cards}
+                <div className="text-[10px] sm:text-sm text-unoRed font-bold animate-bounce">
+                    +{stats.stacked_cards}
                 </div>
              )}
              {isMyTurn && (
-                <div className="mt-4 pointer-events-none bg-gradient-to-r from-primary to-purple-600 text-white font-black px-4 py-2 rounded-xl animate-pulse shadow-xl shadow-primary/40 border border-white/20 tracking-widest text-sm text-center">
+                <div className="mt-1 sm:mt-4 pointer-events-none bg-gradient-to-r from-primary to-purple-600 text-white font-black px-1 py-0.5 sm:px-4 sm:py-2 rounded-lg sm:rounded-xl animate-pulse shadow-xl shadow-primary/40 border border-white/20 tracking-widest text-[7px] sm:text-xs md:text-sm text-center">
                    ★ YOUR TURN ★
                 </div>
              )}
@@ -386,9 +386,9 @@ export default function Game({ roomCode, username, sessionToken, setView, initia
       </div>
 
       {/* Bottom - Player Hand */}
-      <div className="w-full mt-4 flex flex-col items-center z-20 relative">
-         <div className="flex justify-between items-end w-full max-w-3xl mb-2 px-4 gap-2">
-             <button onClick={leaveGame} className="text-slate-400 hover:text-slate-200 transition bg-slate-800/50 px-3 py-1.5 rounded-lg border border-white/5">Leave</button>
+      <div className="w-full mt-2 flex flex-col items-center z-20 relative">
+         <div className="flex justify-between items-end w-full max-w-6xl mb-2 px-2 sm:px-4 gap-2">
+             <button onClick={leaveGame} className="text-slate-400 hover:text-slate-200 transition bg-slate-800/50 px-3 py-1.5 rounded-lg border border-white/5 text-xs">Leave</button>
              
              <div className="text-center font-bold text-slate-300 bg-black/40 px-6 py-1.5 rounded-full border border-white/5 whitespace-nowrap hidden sm:block">
                  <span className="text-primary mr-1 text-sm uppercase tracking-widest">You:</span> 
@@ -405,13 +405,13 @@ export default function Game({ roomCode, username, sessionToken, setView, initia
 
              <button 
                 onClick={handleCallUno}
-                className="px-6 py-2 rounded-xl font-black italic tracking-wider shadow-lg transition bg-unoRed text-white hover:bg-red-600 shadow-unoRed/30 cursor-pointer"
+                className="px-4 py-1.5 md:px-6 md:py-2 rounded-xl font-black italic tracking-wider shadow-lg transition bg-unoRed text-white hover:bg-red-600 shadow-unoRed/30 cursor-pointer text-xs md:text-base"
              >
                 UNO!
              </button>
          </div>
 
-         <div className="card-container bg-surface/40 pb-12 pt-8 px-12 rounded-t-3xl backdrop-blur-md border-t border-white/10 w-full min-h-[220px] relative">
+         <div className="card-container bg-surface/40 pb-10 pt-12 sm:pt-16 px-2 sm:px-12 rounded-t-3xl backdrop-blur-md border-t border-white/10 w-full min-h-[200px] sm:min-h-[260px] relative">
              {hand.map((card, idx) => (
                  <Card 
                     key={idx} 

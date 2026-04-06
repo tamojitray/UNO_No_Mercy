@@ -24,7 +24,7 @@
 
   .stacked-card {
     /* Magic negative margin to stack cards closely horizontally */
-    @apply -ml-10 transition-all duration-300 ease-out preserve-3d cursor-pointer hover:-translate-y-4 hover:scale-[1.15] hover:z-50;
+    @apply -ml-12 sm:-ml-12 md:-ml-16 transition-all duration-300 ease-out preserve-3d cursor-pointer hover:-translate-y-4 hover:scale-[1.15] hover:z-50;
     filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
   }
   
@@ -33,7 +33,7 @@
   }
 
   .card-container {
-    @apply flex flex-row items-center justify-center p-6 w-full max-w-full overflow-x-auto;
+    @apply flex flex-row items-center justify-center pt-12 pb-6 px-6 w-full max-w-full overflow-x-auto;
     scrollbar-width: thin;
     scrollbar-color: rgba(255,255,255,0.2) transparent;
   }

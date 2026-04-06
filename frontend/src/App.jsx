@@ -117,10 +117,10 @@ function App() {
       {/* Global Rules Button */}
       <button 
           onClick={() => setShowRules(true)}
-          className="fixed top-4 md:top-6 right-4 md:right-6 bg-slate-900/80 hover:bg-black/90 backdrop-blur-md border border-white/20 text-white p-3 rounded-xl shadow-2xl hover:scale-110 active:scale-95 transition z-[150] shadow-black flex items-center justify-center min-w-[45px] max-h-[45px]"
+          className="fixed top-4 md:top-6 right-4 md:right-6 bg-slate-900/80 hover:bg-black/90 backdrop-blur-md border border-white/20 text-white p-2 md:p-3 rounded-xl shadow-2xl hover:scale-110 active:scale-95 transition z-[150] shadow-black flex items-center justify-center min-w-[32px] md:min-w-[45px]"
           title="Game Rules"
       >
-          <span className="text-xl font-black text-slate-300 hover:text-white transition tracking-widest whitespace-nowrap">RULES</span>
+          <span className="text-xs md:text-xl font-black text-slate-300 hover:text-white transition tracking-widest whitespace-nowrap">RULES</span>
       </button>
 
       {/* Rules Modal Overlay */}

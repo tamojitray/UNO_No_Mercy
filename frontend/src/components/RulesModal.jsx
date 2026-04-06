@@ -71,9 +71,11 @@ export default function RulesModal({ onClose }) {
            if (e.target === e.currentTarget) onClose();
        }}
     >
-        <div className="bg-slate-900 border border-white/10 rounded-3xl w-full max-w-3xl max-h-[85vh] flex flex-col shadow-[0_0_60px_-15px_rgba(0,0,0,1)] shadow-primary/30 animate-scale-up">
-            <div className="flex justify-between items-center p-6 border-b border-white/10">
-               <h2 className="text-3xl font-black text-white tracking-tight">UNO <span className="text-unoRed uppercase tracking-widest text-2xl bg-unoRed/10 px-3 py-1 rounded-lg ml-2">No Mercy</span></h2>
+        <div className="bg-slate-900 border border-white/10 rounded-3xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-[0_0_60px_-15px_rgba(0,0,0,1)] shadow-primary/30 animate-scale-up">
+            <div className="flex justify-between items-center p-5 md:p-6 border-b border-white/10">
+               <h2 className="text-2xl md:text-3xl font-black text-white tracking-tight flex items-center gap-2">
+                 UNO <span className="text-unoRed uppercase tracking-widest text-lg md:text-2xl bg-unoRed/10 px-3 py-1 rounded-lg">No Mercy</span>
+               </h2>
                <button onClick={onClose} className="text-slate-400 hover:text-white bg-white/5 hover:bg-red-500/80 rounded-full w-10 h-10 flex items-center justify-center transition font-black text-xl z-50 hover:shadow-xl hover:shadow-red-500/50">×</button>
             </div>
             
@@ -93,7 +95,7 @@ export default function RulesModal({ onClose }) {
                         </div>
                      )}
                      <div className={`flex-1 text-center md:text-left ${r.images.length === 0 ? 'md:text-center w-full' : ''}`}>
-                        <h3 className="text-xl font-bold text-primary mb-2 uppercase tracking-wide">{r.title}</h3>
+                        <h3 className="text-lg md:text-xl font-bold text-primary mb-2 uppercase tracking-wide">{r.title}</h3>
                         <p className="text-slate-300 leading-relaxed text-sm md:text-base">{r.description}</p>
                      </div>
                   </div>
