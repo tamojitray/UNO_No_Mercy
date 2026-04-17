@@ -24,12 +24,12 @@ document.addEventListener("DOMContentLoaded", function () {
         socket.emit("call_uno", { room: roomCode });
     });
 
-    drawButton.addEventListener("click", function() {
+    drawButton.addEventListener("click", function () {
         socket.emit("draw_card", { room: roomCode });
     });
 
     // Add click handler for new game button
-    newGameButton.addEventListener("click", function() {
+    newGameButton.addEventListener("click", function () {
         localStorage.removeItem("session_token");
         localStorage.removeItem("username");
         window.location.href = "/";
@@ -42,7 +42,7 @@ document.addEventListener("DOMContentLoaded", function () {
             let cardCount = gameStarted && playerHands[player] !== undefined ? playerHands[player] : "N/A";
             let unoStatus = unoFlags[player] ? " (UNO)" : "";
             li.textContent = `${player}${unoStatus} (${cardCount} cards)`;
-    
+
             if (gameStarted && player !== localStorage.getItem("username")) {
                 let caughtButton = document.createElement("button");
                 caughtButton.textContent = "Caught";
@@ -52,9 +52,9 @@ document.addEventListener("DOMContentLoaded", function () {
                 });
                 li.appendChild(caughtButton);
             }
-    
+
             playerList.appendChild(li);
-    
+
             if (!gameStarted && index === 0 && player === localStorage.getItem("username")) {
                 startGameButton.classList.remove("hidden");
             }
@@ -80,12 +80,12 @@ document.addEventListener("DOMContentLoaded", function () {
         if (color === 'Wild') {
             return `${baseUrl}wild_${value.toLowerCase().replaceAll(' ', '_')}.png`;
         }
-        
+
         // Handle number cards and action cards
         const cardValue = value.toString().toLowerCase().replaceAll(' ', '_');
         return `${baseUrl}${color.toLowerCase()}_${cardValue}.png`;
     }
-    
+
     function updateHandDisplay() {
         const container = document.getElementById('hand-container');
         container.innerHTML = '';
@@ -103,7 +103,7 @@ document.addEventListener("DOMContentLoaded", function () {
             cardImage.alt = `${card.color} ${card.type || card.value}`;
             cardImage.className = 'card-image';
             cardImage.style.width = '150px';
-            
+
             // Add card caption
             const caption = document.createElement('div');
             caption.textContent = `${card.color} ${card.type || card.value}`;
@@ -111,10 +111,10 @@ document.addEventListener("DOMContentLoaded", function () {
 
             cardContainer.appendChild(cardImage);
             cardContainer.appendChild(caption);
-            
+
             cardBtn.appendChild(cardContainer);
             cardBtn.dataset.index = index;
-        
+
             cardBtn.addEventListener('click', () => handlePlayCard(index, card));
             container.appendChild(cardBtn);
         });
@@ -141,17 +141,17 @@ document.addEventListener("DOMContentLoaded", function () {
     function updateDiscardTopDisplay(discardTop) {
         const discardTopDiv = document.getElementById('discard-top');
         discardTopDiv.innerHTML = ''; // Clear existing content
-        
+
         // Create container div
         const cardContainer = document.createElement('div');
         cardContainer.style.textAlign = 'center';
-        
+
         const cardImage = document.createElement('img');
         cardImage.src = getCardImage(discardTop.color, discardTop.type || discardTop.value);
         cardImage.alt = `${discardTop.color} ${discardTop.type || discardTop.value}`;
         cardImage.style.width = '150px'; // Match the size of hand cards
         cardImage.style.height = 'auto';
-        
+
         // Add card caption
         const caption = document.createElement('div');
         caption.textContent = `${discardTop.color} ${discardTop.type || discardTop.value}`;
@@ -187,7 +187,7 @@ document.addEventListener("DOMContentLoaded", function () {
                     </div>
                 </div>
             `);
-    
+
             overlay.querySelectorAll('button[data-color]').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     removeOverlayPrompt();
@@ -196,7 +196,7 @@ document.addEventListener("DOMContentLoaded", function () {
             });
         });
     }
-    
+
     function showOverlayPrompt(innerHtml) {
         // Create overlay
         const overlay = document.createElement('div');
@@ -270,240 +270,240 @@ document.addEventListener("DOMContentLoaded", function () {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ session_token: sessionToken })
     })
-    .then(response => response.json())
-    .then(data => {
-        if (data.status === 'success') {
-            let username = data.username;
-            localStorage.setItem("username", username);
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                let username = data.username;
+                localStorage.setItem("username", username);
 
-            // Emit event to join room
-            socket.emit("join_room", { room: roomCode, username: username, session: sessionToken });
+                // Emit event to join room
+                socket.emit("join_room", { room: roomCode, username: username, session: sessionToken });
 
-            // Add this line to check both states after joining
-            socket.emit("check_game_states", { room: roomCode });
+                // Add this line to check both states after joining
+                socket.emit("check_game_states", { room: roomCode });
 
-            // Add this new line to check roulette state after joining
-            socket.emit("check_roulette_state", { room: roomCode });
+                // Add this new line to check roulette state after joining
+                socket.emit("check_roulette_state", { room: roomCode });
 
-            socket.on("update_players", function (data) {
-                if (!data.game_started) {
-                    updatePlayerList(data.players, data.game_started);
-                }
-            });
-            
-            socket.on("game_started", function (data) {
-                console.log("=== GAME STARTED ===");
-                console.log("Initial Discard:", data.discard_top);
-                console.log("Cards Remaining:", data.cards_left);
-                console.log("====================");      
-                
-                alert("Game has started! No new players can join.");
-                updatePlayerList(data.shuffled_players, true);
-                startGameButton.classList.add("hidden");
-            });
+                socket.on("update_players", function (data) {
+                    if (!data.game_started) {
+                        updatePlayerList(data.players, data.game_started);
+                    }
+                });
 
-            socket.on("your_hand", function (data) {
-                console.log("=== YOUR HAND ===");
-                console.log("Cards:", data.hand);
-                console.log("Discard Pile Top:", data.discard_top);
-                console.log("Cards Left in Deck:", data.cards_left);
-                console.log("==================");
+                socket.on("game_started", function (data) {
+                    console.log("=== GAME STARTED ===");
+                    console.log("Initial Discard:", data.discard_top);
+                    console.log("Cards Remaining:", data.cards_left);
+                    console.log("====================");
 
-                currentHand = data.hand;
-                updateHandDisplay();
-                
-                updateDiscardTopDisplay(data.discard_top); // Update this line
-            });
+                    alert("Game has started! No new players can join.");
+                    updatePlayerList(data.shuffled_players, true);
+                    startGameButton.classList.add("hidden");
+                });
 
-            // Add new handler for checking game states
-            socket.on("pending_player_selection", async function(data) {
-                if (data.needs_selection && data.current_player === username) {
-                    console.log("=== RESUMING PLAYER SELECTION ===");
-                    try {
-                        const selectedPlayer = await promptPlayerSelection(data.available_players);
-                        if (selectedPlayer) {
-                            socket.emit("player_selected_for_swap", { 
-                                room: roomCode,
-                                selected_player: selectedPlayer
-                            });
+                socket.on("your_hand", function (data) {
+                    console.log("=== YOUR HAND ===");
+                    console.log("Cards:", data.hand);
+                    console.log("Discard Pile Top:", data.discard_top);
+                    console.log("Cards Left in Deck:", data.cards_left);
+                    console.log("==================");
+
+                    currentHand = data.hand;
+                    updateHandDisplay();
+
+                    updateDiscardTopDisplay(data.discard_top); // Update this line
+                });
+
+                // Add new handler for checking game states
+                socket.on("pending_player_selection", async function (data) {
+                    if (data.needs_selection && data.current_player === username) {
+                        console.log("=== RESUMING PLAYER SELECTION ===");
+                        try {
+                            const selectedPlayer = await promptPlayerSelection(data.available_players);
+                            if (selectedPlayer) {
+                                socket.emit("player_selected_for_swap", {
+                                    room: roomCode,
+                                    selected_player: selectedPlayer
+                                });
+                            }
+                        } catch (error) {
+                            console.error("Player selection failed:", error);
                         }
+                    }
+                });
+
+                // Add new handler for pending roulette check
+                socket.on("pending_roulette", async function (data) {
+                    if (data.needs_selection && data.current_player === username) {
+                        console.log("=== RESUMING ROULETTE SELECTION ===");
+                        try {
+                            const color = await promptColor();
+                            if (color) {
+                                socket.emit("color_selected", {
+                                    room: roomCode,
+                                    color: color
+                                });
+                            }
+                        } catch (error) {
+                            console.error("Color selection failed:", error);
+                        }
+                    }
+                });
+
+                socket.on("select_player_for_swap", async function (data) {
+                    console.log("=== SELECT PLAYER FOR SWAP ===");
+                    console.log("Available Players:", data.players);
+                    console.log("==============================");
+
+                    try {
+                        const selectedPlayer = await promptPlayerSelection(data.players);
+                        socket.emit("player_selected_for_swap", {
+                            room: roomCode,
+                            selected_player: selectedPlayer
+                        });
                     } catch (error) {
                         console.error("Player selection failed:", error);
                     }
-                }
-            });
+                });
 
-            // Add new handler for pending roulette check
-            socket.on("pending_roulette", async function(data) {
-                if (data.needs_selection && data.current_player === username) {
-                    console.log("=== RESUMING ROULETTE SELECTION ===");
+                // Add new event listener for game state updates
+                socket.on("game_update", function (data) {
+                    document.getElementById('current-turn').textContent = `Current turn: ${data.current_player}`;
+                    updateDiscardTopDisplay(data.discard_top); // Replace the old discard-top update
+
+                    const discardTopDiv = document.getElementById('discard-top');
+                    if (data.discard_top.color === 'Wild') {
+                        discardTopDiv.style.backgroundColor = "#808080";
+                    } else {
+                        discardTopDiv.style.backgroundColor = getCardColor(data.playing_color);
+                    }
+
+                    document.getElementById('draw-deck-size').textContent = `Draw Deck Size: ${data.draw_deck_size}`;
+                    document.getElementById('discard-pile-size').textContent = `Discard Pile Size: ${data.discard_pile_size}`;
+
+                    document.getElementById('stack-counter').textContent = `Stack: ${data.stacked_cards}`;  // Update stack counter
+                    document.getElementById('playing-color').textContent = `Playing Color: ${data.playing_color || 'None'}`;  // Update playing color               
+                    // Update player list with hand sizes
+                    updatePlayerList(
+                        data.player_hands ? Object.keys(data.player_hands) : [],
+                        true,
+                        data.player_hands,
+                        data.uno_flags
+                    );
+
+                    const currentUser = localStorage.getItem("username");
+                    if (data.current_player === currentUser) {
+                        drawButton.classList.remove("hidden");
+                    } else {
+                        drawButton.classList.add("hidden");
+                    }
+                });
+
+                socket.on("play_error", function (data) {
+                    alert(data.message);
+                });
+
+                socket.on("uno_called", function (data) {
+                    // alert(`${data.player} called UNO!`);
+                });
+
+                socket.on("uno_caught", function (data) {
+                    alert(`${data.caller} caught ${data.target_player}! ${data.target_player} auto-drawing 2 cards.`);
+                });
+
+                socket.on("player_disqualified", function (data) {
+                    alert(data.player + " is eliminated");
+                });
+
+                socket.on("roulette", async function () {
+                    console.log("=== SPIN ROULETTE ===");
                     try {
                         const color = await promptColor();
-                        if (color) {
-                            socket.emit("color_selected", { 
-                                room: roomCode,
-                                color: color
-                            });
-                        }
+                        socket.emit("color_selected", {
+                            room: roomCode,
+                            color: color
+                        });
                     } catch (error) {
                         console.error("Color selection failed:", error);
                     }
-                }
-            });
+                });
 
-            socket.on("select_player_for_swap", async function(data) {
-                console.log("=== SELECT PLAYER FOR SWAP ===");
-                console.log("Available Players:", data.players);
-                console.log("==============================");
-                
-                try {
-                    const selectedPlayer = await promptPlayerSelection(data.players);
-                    socket.emit("player_selected_for_swap", { 
-                        room: roomCode,
-                        selected_player: selectedPlayer
-                    });
-                } catch (error) {
-                    console.error("Player selection failed:", error);
-                }
-            });
+                socket.on("card_drawn", function (data) {
+                    console.log("=== CARD DRAWN ===");
+                    console.log("Player:", data.player);
+                    console.log("New Card:", data.new_card);
+                    console.log("Remaining Cards:", data.cards_left);
+                    console.log("==================");
 
-            // Add new event listener for game state updates
-            socket.on("game_update", function(data) {
-                document.getElementById('current-turn').textContent = `Current turn: ${data.current_player}`;
-                updateDiscardTopDisplay(data.discard_top); // Replace the old discard-top update
+                    // Add new cards to current hand
+                    currentHand.push(data.new_card);
+                    updateHandDisplay();
 
-                const discardTopDiv = document.getElementById('discard-top');
-                if (data.discard_top.color === 'Wild') {
-                    discardTopDiv.style.backgroundColor = "#808080";
-                } else {
-                    discardTopDiv.style.backgroundColor = getCardColor(data.playing_color);
-                }
+                });
 
-                document.getElementById('draw-deck-size').textContent = `Draw Deck Size: ${data.draw_deck_size}`;
-                document.getElementById('discard-pile-size').textContent = `Discard Pile Size: ${data.discard_pile_size}`;  
-
-                document.getElementById('stack-counter').textContent = `Stack: ${data.stacked_cards}`;  // Update stack counter
-                document.getElementById('playing-color').textContent = `Playing Color: ${data.playing_color || 'None'}`;  // Update playing color               
-                // Update player list with hand sizes
-                updatePlayerList(
-                    data.player_hands ? Object.keys(data.player_hands) : [],
-                    true,
-                    data.player_hands,
-                    data.uno_flags
-                );
-
-                const currentUser = localStorage.getItem("username");
-                if (data.current_player === currentUser) {
-                    drawButton.classList.remove("hidden");
-                } else {
-                    drawButton.classList.add("hidden");
-                }
-            });
-
-            socket.on("play_error", function(data) {
-                alert(data.message);
-            });
-
-            socket.on("uno_called", function (data) {
-                // alert(`${data.player} called UNO!`);
-            });
-
-            socket.on("uno_caught", function (data) {
-                alert(`${data.caller} caught ${data.target_player}! ${data.target_player} auto-drawing 2 cards.`);
-            });
-
-            socket.on("player_disqualified", function(data) {
-                alert(data.player + " is eliminated");
-            });
-
-            socket.on("roulette", async function() {
-                console.log("=== SPIN ROULETTE ===");
-                try {
-                    const color = await promptColor();
-                    socket.emit("color_selected", { 
-                        room: roomCode,
-                        color: color
-                    });
-                } catch (error) {
-                    console.error("Color selection failed:", error);
-                }
-            });
-
-            socket.on("card_drawn", function (data) {
-                console.log("=== CARD DRAWN ===");
-                console.log("Player:", data.player);
-                console.log("New Card:", data.new_card);
-                console.log("Remaining Cards:", data.cards_left);
-                console.log("==================");
-
-                // Add new cards to current hand
-                currentHand.push(data.new_card);
-                updateHandDisplay();
-                
-            });
-
-            socket.on("room_full", function (data) {
-                console.log("Room full event received:", data);
-                alert(data.message);
-                window.location.href = "/";
-            });
-
-            socket.on("room_deleted", function (data) {
-                console.log("Room deleted event received:", data);
-                alert(data.message);
-                window.location.href = "/";
-            });
-            
-            socket.on("roulette_draw", function (data) {
-                console.log("Roulette Card Drawn");
-                console.log(data.card_drawn);
-
-            });
-
-            socket.on("game_over", function (data) {
-                updateDiscardTopDisplay(data.discard_top); // Update this line
-                // Hide game controls
-                drawButton.classList.add("hidden");
-                leaveButton.style.display = 'none';
-                // Show new game button
-                newGameButton.classList.remove("hidden");
-                alert(data.winner + " has won the game!");
-            });
-
-            leaveButton.addEventListener("click", function () {
-                const confirmation = confirm("Are you sure you want to leave the room?");
-                if (confirmation) {
-                    socket.emit("leave_room", { room: roomCode, username: username, session: sessionToken });
-                    localStorage.removeItem("session_token");
-                    localStorage.removeItem("username");
+                socket.on("room_full", function (data) {
+                    console.log("Room full event received:", data);
+                    alert(data.message);
                     window.location.href = "/";
-                }
-            });
+                });
 
-            startGameButton.addEventListener("click", function () {
-                fetch('/start_game', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ room_code: roomCode, username: username })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === "started") {
-                        alert("Game started!");
-                        socket.emit("game_started", { room: roomCode });
-                    } else if (data.status === "not_enough_players") {
-                        alert("At least 2 players are required to start the game.");
-                    } else {
-                        alert("You are not authorized to start the game.");
+                socket.on("room_deleted", function (data) {
+                    console.log("Room deleted event received:", data);
+                    alert(data.message);
+                    window.location.href = "/";
+                });
+
+                socket.on("roulette_draw", function (data) {
+                    console.log("Roulette Card Drawn");
+                    console.log(data.card_drawn);
+
+                });
+
+                socket.on("game_over", function (data) {
+                    updateDiscardTopDisplay(data.discard_top); // Update this line
+                    // Hide game controls
+                    drawButton.classList.add("hidden");
+                    leaveButton.style.display = 'none';
+                    // Show new game button
+                    newGameButton.classList.remove("hidden");
+                    alert(data.winner + " has won the game!");
+                });
+
+                leaveButton.addEventListener("click", function () {
+                    const confirmation = confirm("Are you sure you want to leave the room?");
+                    if (confirmation) {
+                        socket.emit("leave_room", { room: roomCode, username: username, session: sessionToken });
+                        localStorage.removeItem("session_token");
+                        localStorage.removeItem("username");
+                        window.location.href = "/";
                     }
                 });
-            });
 
-        } else {
-            alert("Session invalid. Please rejoin the room.");
-            localStorage.removeItem("session_token");
-            window.location.href = "/";
-        }
-    })
-    .catch(error => console.error('Error verifying session:', error));
+                startGameButton.addEventListener("click", function () {
+                    fetch('/start_game', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ room_code: roomCode, username: username })
+                    })
+                        .then(response => response.json())
+                        .then(data => {
+                            if (data.status === "started") {
+                                alert("Game started!");
+                                socket.emit("game_started", { room: roomCode });
+                            } else if (data.status === "not_enough_players") {
+                                alert("At least 2 players are required to start the game.");
+                            } else {
+                                alert("You are not authorized to start the game.");
+                            }
+                        });
+                });
+
+            } else {
+                alert("Session invalid. Please rejoin the room.");
+                localStorage.removeItem("session_token");
+                window.location.href = "/";
+            }
+        })
+        .catch(error => console.error('Error verifying session:', error));
 });

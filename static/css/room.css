@@ -12,7 +12,8 @@ h1 {
 }
 
 button {
-    display: inline-block; /* Optional, as it's the default, but explicit is good */
+    display: inline-block;
+    /* Optional, as it's the default, but explicit is good */
     background-color: #4CAF50;
     color: white;
     padding: 15px 32px;
@@ -29,7 +30,8 @@ button:hover {
 
 /* Modal styles */
 .modal {
-    display: none; /* Hidden by default, shown via JavaScript */
+    display: none;
+    /* Hidden by default, shown via JavaScript */
     position: fixed;
     z-index: 1;
     left: 0;
@@ -37,7 +39,8 @@ button:hover {
     width: 100%;
     height: 100%;
     overflow: auto;
-    background-color: rgba(0,0,0,0.4); /* Semi-transparent overlay */
+    background-color: rgba(0, 0, 0, 0.4);
+    /* Semi-transparent overlay */
     padding-top: 60px;
 }
 
@@ -90,14 +93,23 @@ button:hover {
     border-radius: 8px;
     display: inline-block;
     background-color: #f0f0f0;
-    color: white !important; /* Force white text */
-    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8); /* Stronger shadow */
-    font-weight: bold; 
+    color: white !important;
+    /* Force white text */
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.8);
+    /* Stronger shadow */
+    font-weight: bold;
 }
 
 @keyframes slideIn {
-    from { transform: translateY(100px); opacity: 0; }
-    to { transform: translateY(0); opacity: 1; }
+    from {
+        transform: translateY(100px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
 }
 
 .card:hover {

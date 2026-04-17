@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <title>UNO by TAMO</title>
     <link rel="stylesheet" type="text/css" href="/static/css/room.css">
@@ -8,6 +9,7 @@
         var roomCode = "{{ room_code }}";
     </script>
 </head>
+
 <body>
     <div class="room-header">
         <h1 class="room-title">UNO No Mercy Room: {{ room_code }}</h1>
@@ -31,13 +33,14 @@
     <button id="call-uno-btn">Call UNO</button>
 
     <h2 id="current-turn"></h2>
-    
+
 
     <h2>Your Hand</h2>
     <div id="hand-container"></div>
 
-    
+
 
     <script src="/static/js/room.js"></script>
 </body>
+
 </html>

@@ -205,5 +205,4 @@ deck = [
     # {'color': 'Wild', 'type': 'Wild Final Attack'},
     # {'color': 'Wild', 'type': 'Wild Sudden Death'},
     # {'color': 'Wild', 'type': 'Wild Sudden Death'}
-
 ]

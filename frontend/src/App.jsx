@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import Home from './components/Home';
 import Room from './components/Room';
 import Game from './components/Game';
+import Chat from './components/Chat';
 import RulesModal from './components/RulesModal';
 import { socket } from './socket';
 import axios from 'axios';
@@ -112,6 +113,11 @@ function App() {
           initialHandData={initialHandData}
           initialGameUpdate={initialGameUpdate}
         />
+      )}
+
+      {/* Global Chat Component */}
+      {(view === 'room' || view === 'game') && (
+        <Chat roomCode={roomCode} username={username} />
       )}
 
       {/* Global Rules Button */}

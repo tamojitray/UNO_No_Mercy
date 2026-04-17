@@ -24,15 +24,33 @@ def generate_room_code():
         room_code = ''.join(random.choices(string.ascii_uppercase + string.digits, k=6))
     return room_code
 
+def cleanup_room(room_code):
+    """Thoroughly cleans up all data associated with a room code."""
+    if room_code in rooms:
+        del rooms[room_code]
+    
+    # Clean up sessions
+    tokens_to_del = [t for t, s in sessions.items() if s.get('room_code') == room_code]
+    for t in tokens_to_del:
+        sessions.pop(t, None)
+        # Also clean up sockets pointing to these tokens
+        sids_to_del = [sid for sid, token in user_sockets.items() if token == t]
+        for sid in sids_to_del:
+            user_sockets.pop(sid, None)
+        # Stop timers
+        stop_thread(t)
+    
+    print(f"Room {room_code} and all associated sessions/sockets cleaned up.")
+
 def generate_session_token():
     session_token = secrets.token_hex(16)
     while session_token in sessions:
         session_token = secrets.token_hex(16)
     return session_token
 
-def start_thread(token, username, room_code, game):
+def start_thread(token, username, room_code):
         stop_event = threading.Event()
-        thread = threading.Thread(target=delayed_removal, args=(token, stop_event, username, room_code, game))
+        thread = threading.Thread(target=delayed_removal, args=(token, stop_event, username, room_code))
         disconnect_timers[token] = (thread, stop_event)
         thread.start()
 
@@ -45,7 +63,7 @@ def stop_thread(token):
     else:
         print(f"{token} not found.")
 
-def delayed_removal(token, stop_event, username, room_code, game):
+def delayed_removal(token, stop_event, username, room_code):
     print(f"Started removing of {token}...")
 
     # Starting a 30s timer
@@ -57,41 +75,65 @@ def delayed_removal(token, stop_event, username, room_code, game):
 
     with app.app_context():
         # Checking if room and username exists before removing
-        if room_code in rooms and username in rooms[room_code]['players']:
-            # Remove the disconnected player
-            rooms[room_code]['players'].remove(username)
+        if room_code in rooms:
+            room_data = rooms[room_code]
+            current_game = room_data.get('game')
 
-            if len(rooms[room_code]['players']) == 1 and game is not None:
-                # Notify the remaining player
-                #Show alert to the remaining player that the game is over
-                socketio.emit("game_over", {
-                    "winner": rooms[room_code]['players'][0],
-                    "discard_top": game.top_card()
+            if username in room_data['players']:
+                # Remove the disconnected player
+                room_data['players'].remove(username)
+
+                if len(room_data['players']) == 1 and current_game is not None:
+                    # Notify the remaining player
+                    socketio.emit("game_over", {
+                        "winner": room_data['players'][0],
+                        "discard_top": current_game.top_card()
+                    }, room=room_code)
+                    room_data['started'] = False
+
+                # Case 1: Room is now empty
+                if not room_data['players']:
+                    print(f"Room {room_code} empty. Deleting and notifying.")
+                    socketio.emit("room_deleted", {"message": "Game ended as all players left"}, room=room_code)
+                    cleanup_room(room_code)
+                    return
+
+                # Handle game-specific removal
+                if current_game is not None and username in current_game.players:
+                    current_game.players.remove(username)
+                    current_game.hands.pop(username, None)
+                    print(f"Removed {username} from active game in {room_code}")
+
+            # Cleanup session and timers
+            if token in sessions:
+                del sessions[token]
+            disconnect_timers.pop(token, None)
+
+            # Broadcast updates
+            if room_data['started'] and current_game is not None:
+                socketio.emit("update_players", {"players": current_game.players, "game_started": True}, room=room_code)
+                socketio.emit("game_update", {
+                    "current_player": current_game.current_players_turn(),
+                    "discard_top": current_game.top_card(),
+                    "cards_left": current_game.cards_remaining(),
+                    "stacked_cards": current_game.stacked_cards,
+                    "playing_color": current_game.playing_color,
+                    "player_hands": {p: len(current_game.hands[p]) for p in current_game.players},
+                    "draw_deck_size": len(current_game.deck),
+                    "discard_pile_size": len(current_game.discard_pile),
+                    "uno_flags": current_game.uno_flags,
+                    "players": current_game.players
                 }, room=room_code)
-                rooms[room_code]['started'] = False
+            else:
+                socketio.emit("update_players", {"players": room_data['players'], "game_started": False}, room=room_code)
 
-            # Case 1: Room is now empty
-            if not rooms[room_code]['players']:
-                print(f"Room {room_code} empty. Deleting and notifying.")
-                socketio.emit("room_deleted", {"message": "Game ended as all players left"}, room=room_code)
-                del rooms[room_code]
+        else:
+            # Room already gone, just clean up session
+            if token in sessions:
+                del sessions[token]
+            disconnect_timers.pop(token, None)
 
-        # Cleanup session and timers
-        if token in sessions:
-            del sessions[token]
-        disconnect_timers.pop(token, None)
-
-        # Only manipulate game object if it exists
-        if game is not None and username in game.players:
-            game.players.remove(username)
-            game.hands.pop(username)
-        print(f"User {token} permanently removed after 30 sec of inactivity.")
-
-        if room_code in rooms and rooms[room_code]['started'] == True and game is not None:
-            socketio.emit("update_players", {"players": game.players, "game_started": rooms[room_code]['started']}, room=room_code)
-        if room_code in rooms and rooms[room_code]['started'] == False:
-            socketio.emit("update_players", {"players": rooms[room_code]['players'], "game_started": rooms[room_code]['started']}, room=room_code)
-
+        print(f"User {token} permanently removed after inactivity.")
         print(f"Thread for {token} stopped")
 
 def handle_special_effects(game, card, player, color, room_code):
@@ -173,7 +215,9 @@ def index():
 @app.route('/create_room', methods=['POST'])
 def create_room():
     data = request.get_json()
-    player_name = data.get('username')
+    player_name = data.get('username', '').strip()
+    if not player_name:
+        return jsonify({'status': 'invalid_username'}), 400
     room_code = generate_room_code()
     session_token = generate_session_token()
 
@@ -189,8 +233,8 @@ def create_room():
 @app.route('/join_room', methods=['POST'])
 def join_room_route():
     data = request.json
-    room_code = data.get('room_code')
-    username = data.get('username')
+    room_code = data.get('room_code', '').strip().upper()
+    username = data.get('username', '').strip()
 
     if room_code in rooms:
         if rooms[room_code]['started']:
@@ -279,6 +323,12 @@ def start_game():
 
 @app.route('/debug')
 def debug():
+    # Auto-cleanup orphaned sessions (sessions for rooms that no longer exist)
+    orphaned_sessions = [t for t, s in sessions.items() if s.get('room_code') not in rooms]
+    for t in orphaned_sessions:
+        sessions.pop(t, None)
+        disconnect_timers.pop(t, None)
+
     debug_rooms = {}
     for room_code, room_data in rooms.items():
         # Create a copy to avoid modifying the original data
@@ -970,9 +1020,14 @@ def handle_player_selected_for_swap(data):
 
 @socketio.on("join_room")
 def handle_join_room(data):
-    room_code = data.get("room")
-    username = data.get("username")
+    room_code = data.get("room", "").strip().upper()
+    username = data.get("username", "").strip()
     session_token = data.get("session")
+
+    if room_code not in rooms:
+        print(f"Attempt to join non-existent room: {room_code}")
+        emit("room_not_found", {"message": "Room not found"}, room=request.sid)
+        return
 
     print(session_token)
     print(user_sockets)
@@ -1059,30 +1114,9 @@ def handle_leave_room(data):
                 return
             
             print(f"Game in {room_code} was active, deleting room and clearing all players' sessions.")
-
-            tokens_to_delete = []
-            sids_to_delete = []
-
-            for player in rooms[room_code]['players']:
-                for token, session_data in sessions.items():
-                    if session_data["username"] == player:
-                        tokens_to_delete.append(token)  # Collect token
-
-                for sid, token in user_sockets.items():
-                    if token in sessions and sessions[token]["username"] == player:
-                        sids_to_delete.append(sid)  # Collect socket ID
-
-            # Now delete sessions and sockets
-            for token in tokens_to_delete:
-                sessions.pop(token, None)  # Use pop to avoid KeyError
-
-            for sid in sids_to_delete:
-                user_sockets.pop(sid, None)
-
-            
             
             emit("room_deleted", {"message": "Game ended as a player left"}, room=room_code)
-            del rooms[room_code]  # Delete the room
+            cleanup_room(room_code)
             
             return  # Exit function early since room is deleted
 
@@ -1094,8 +1128,7 @@ def handle_leave_room(data):
 
         # If room is empty, delete it
         if not rooms[room_code]['players']:  
-            
-            del rooms[room_code]
+            cleanup_room(room_code)
 
     leave_room(room_code)
 
@@ -1137,11 +1170,28 @@ def handle_disconnect():
         print("Room not found, clearing session")
         return 
 
-    game = rooms[room_code].get('game')  
+    start_thread(session_token, username, room_code)
 
-    start_thread(session_token, username, room_code, game)
+    print(f"User {username} disconnected. Waiting 90 sec before removal.")
 
-    print(f"User {username} disconnected. Waiting 30 sec before removal.")
+@socketio.on("send_message")
+def handle_send_message(data):
+    room_code = data.get('room')
+    message = data.get('message')
+    session_token = user_sockets.get(request.sid)
+    
+    if not session_token or session_token not in sessions:
+        return
+        
+    username = sessions[session_token]['username']
+    
+    if room_code in rooms:
+        # Simple message broadcast to everyone in the room
+        socketio.emit("receive_message", {
+            "username": username,
+            "message": message,
+            "timestamp": time.strftime("%H:%M:%S")
+        }, room=room_code)
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=8000, debug=True, allow_unsafe_werkzeug=True)

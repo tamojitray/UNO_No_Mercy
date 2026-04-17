@@ -264,7 +264,7 @@ export default function Game({ roomCode, username, sessionToken, setView, initia
     <div className="w-full max-w-6xl mx-auto h-[94vh] md:h-[90vh] flex flex-col justify-between animate-slide-up relative overflow-hidden">
       
       {showCatchHint && (
-         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[100] bg-blue-600/90 backdrop-blur-md text-white text-xs md:text-sm px-6 py-3 rounded-full flex items-center justify-between gap-4 shadow-2xl shadow-blue-500/50 animate-bounce border border-blue-400">
+         <div className="absolute top-4 left-1/2 -translate-x-1/2 z-[100] bg-blue-600/90 backdrop-blur-md text-white text-xs md:text-sm px-6 py-3 rounded-full flex items-center justify-between gap-4 shadow-2xl shadow-blue-500/50 border border-blue-400 transition-opacity duration-500">
             <span>💡 <strong>Tip:</strong> Click an opponent's name box directly to CATCH them if they forget to say UNO!</span>
             <button onClick={() => setShowCatchHint(false)} className="text-white hover:text-blue-200 transition font-black ml-2 rounded-full px-2.5 py-0.5 bg-blue-800 scale-110 active:scale-95">×</button>
          </div>
