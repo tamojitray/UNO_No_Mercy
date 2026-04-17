@@ -1137,7 +1137,67 @@ def handle_leave_room(data):
     print(rooms)
     if room_code in rooms:
         emit("update_players", {"players": rooms[room_code]['players'], "game_started": rooms[room_code]['started']}, room=room_code)
+
+@socketio.on("kick_player")
+def handle_kick_player(data):
+    room_code = data.get("room")
+    target_username = data.get("target_username")
     
+    session_token = user_sockets.get(request.sid)
+    if not session_token or session_token not in sessions:
+        return
+        
+    leader_username = sessions[session_token]['username']
+    
+    if room_code in rooms and not rooms[room_code]['started']:
+        # First player in list is the leader
+        if rooms[room_code]['players'][0] == leader_username:
+            if target_username in rooms[room_code]['players'] and target_username != leader_username:
+                # Notify everyone that a player was kicked
+                emit("player_kicked", {"username": target_username}, room=room_code)
+                
+                # Remove from room
+                rooms[room_code]['players'].remove(target_username)
+                
+                # Find and remove target's session and socket
+                target_token = None
+                for token, info in sessions.items():
+                    if info['username'] == target_username and info['room_code'] == room_code:
+                        target_token = token
+                        break
+                
+                if target_token:
+                    sessions.pop(target_token, None)
+                    sids_to_del = [sid for sid, token in user_sockets.items() if token == target_token]
+                    for sid in sids_to_del:
+                        user_sockets.pop(sid, None)
+                
+                # Broadcast updated player list
+                emit("update_players", {"players": rooms[room_code]['players'], "game_started": False}, room=room_code)
+
+@socketio.on("transfer_leadership")
+def handle_transfer_leadership(data):
+    room_code = data.get("room")
+    target_username = data.get("target_username")
+    
+    session_token = user_sockets.get(request.sid)
+    if not session_token or session_token not in sessions:
+        return
+        
+    current_leader = sessions[session_token]['username']
+    
+    if room_code in rooms and not rooms[room_code]['started']:
+        # Only the current leader (first in list) can transfer
+        if rooms[room_code]['players'][0] == current_leader:
+            if target_username in rooms[room_code]['players'] and target_username != current_leader:
+                # Remove target from their current position and insert at the beginning
+                rooms[room_code]['players'].remove(target_username)
+                rooms[room_code]['players'].insert(0, target_username)
+                
+                # Broadcast the update to everyone
+                emit("update_players", {"players": rooms[room_code]['players'], "game_started": False}, room=room_code)
+                print(f"Leadership in {room_code} transferred to {target_username}")
+
 @socketio.on("connect")
 def handle_connect():
     print(f"Client connected: {request.sid}")
@@ -1192,6 +1252,18 @@ def handle_send_message(data):
             "message": message,
             "timestamp": time.strftime("%H:%M:%S")
         }, room=room_code)
+
+@app.route('/report_bug', methods=['POST'])
+def report_bug():
+    data = request.json
+    bug_message = data.get('bug')
+    if not bug_message:
+        return jsonify({'status': 'error', 'message': 'No bug message provided'}), 400
+    
+    with open('bugs.txt', 'a') as f:
+        f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} - {bug_message}\n")
+    
+    return jsonify({'status': 'success'})
 
 if __name__ == '__main__':
     socketio.run(app, host='0.0.0.0', port=8000, debug=True, allow_unsafe_werkzeug=True)

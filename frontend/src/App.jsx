@@ -3,6 +3,7 @@ import Home from './components/Home';
 import Room from './components/Room';
 import Game from './components/Game';
 import Chat from './components/Chat';
+import BugReport from './components/BugReport';
 import RulesModal from './components/RulesModal';
 import { socket } from './socket';
 import axios from 'axios';
@@ -128,6 +129,9 @@ function App() {
       >
           <span className="text-xs md:text-xl font-black text-slate-300 hover:text-white transition tracking-widest whitespace-nowrap">RULES</span>
       </button>
+
+      {/* Bug Report Component */}
+      <BugReport />
 
       {/* Rules Modal Overlay */}
       {showRules && <RulesModal onClose={() => setShowRules(false)} />}
