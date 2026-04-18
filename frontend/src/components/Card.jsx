@@ -15,18 +15,15 @@ export default function Card({ card, index, onPlay, isPlayable, stacked, noOverl
 
   return (
     <div 
-      className={`relative group ${stacked ? 'stacked-card' : ''}`}
+      className={`relative group ${stacked ? 'stacked-card' : ''} ${isPlayable ? 'cursor-pointer' : 'cursor-not-allowed'}`}
       style={{ zIndex }}
       onClick={() => isPlayable && onPlay(index, card)}
     >
       <img 
         src={imageUrl} 
         alt={`${card.color} ${card.type || card.value}`} 
-        className="w-24 sm:w-28 md:w-32 lg:w-40 rounded-xl"
+        className={`w-24 sm:w-28 md:w-32 lg:w-40 rounded-xl transition-all duration-300 ${isPlayable ? 'hover:scale-105 hover:shadow-[0_0_20px_rgba(255,255,255,0.3)] hover:z-50' : ''}`}
       />
-      {!isPlayable && !noOverlay && (
-        <div className="absolute inset-0 bg-black/40 rounded-xl rounded-xl transition-all group-hover:bg-transparent pointer-events-none" />
-      )}
     </div>
   );
 }

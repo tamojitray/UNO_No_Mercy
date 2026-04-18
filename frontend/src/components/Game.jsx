@@ -4,6 +4,7 @@ import Card from './Card';
 
 export default function Game({ roomCode, username, sessionToken, setView, initialHandData, initialGameUpdate }) {
   const [hand, setHand] = useState(initialHandData ? initialHandData.hand : []);
+  const [validIndices, setValidIndices] = useState(initialHandData ? initialHandData.valid_indices : []);
   const [discardTop, setDiscardTop] = useState(initialHandData && initialHandData.discard_top ? initialHandData.discard_top : null);
   const [stats, setStats] = useState({
     current_player: initialGameUpdate?.current_player || '',
@@ -55,6 +56,7 @@ export default function Game({ roomCode, username, sessionToken, setView, initia
   useEffect(() => {
     const onYourHand = (data) => {
       setHand(data.hand);
+      setValidIndices(data.valid_indices || []);
       if (data.discard_top) setDiscardTop(data.discard_top);
     };
 
@@ -418,7 +420,7 @@ export default function Game({ roomCode, username, sessionToken, setView, initia
                     card={card} 
                     index={idx} 
                     stacked={true} 
-                    isPlayable={isMyTurn}
+                    isPlayable={isMyTurn && validIndices.includes(idx)}
                     onPlay={handlePlayCard}
                  />
              ))}

@@ -130,6 +130,47 @@ class Unogame:
                 valid_color_indexes.append(i)
         return valid_color_indexes
 
+    def remove_player(self, player_name):
+        if player_name in self.players:
+            is_current = (self.current_players_turn() == player_name)
+            
+            # If any player leaves, clean up any pending selection states.
+            # This ensures that if the player who was supposed to choose leaves, 
+            # or if the target of a roulette leaves, the game state is reset.
+            if self.awaiting_player_choice or self.awaiting_color_choice or self.roulette:
+                self.awaiting_player_choice = False
+                self.awaiting_color_choice = False
+                self.roulette = False
+            
+            if is_current:
+                if self.draw_pending:
+                    self.stacked_cards = 0
+                    self.draw_pending = False
+                    self.draw_started = False
+            
+            # Add player's cards back to deck and shuffle
+            player_hand = self.hands.pop(player_name, [])
+            self.deck.extend(player_hand)
+            random.shuffle(self.deck)
+
+            self.players.remove(player_name)
+            self.uno_flags.pop(player_name, None)
+            
+            return True
+        return False
+
+    def get_valid_indices(self, player):
+        if self.current_players_turn() != player:
+            return []
+        
+        if self.draw_pending:
+            if not self.draw_started:
+                return self.find_staking_cards(player)
+            else:
+                return [] # Must finish drawing
+                
+        return self.find_valid_cards(player)
+
     def to_dict(self):
         return {
             "players": self.players,
