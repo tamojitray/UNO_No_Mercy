@@ -97,7 +97,8 @@ def stop_thread(token):
     if timer_data:
         print(f"Cancelled removal of {token}...")
         timer_data[1].set()  # Set the stop event
-        timer_data[0].join()  # Wait for the thread to finish
+        if timer_data[0] != threading.current_thread():
+            timer_data[0].join()  # Wait for the thread to finish if it's not the current one
     else:
         print(f"{token} not found.")
 
