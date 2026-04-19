@@ -1,11 +1,9 @@
 # UNO_No_Mercy
 UNO Show ‘Em No Mercy
 
+# Backend Run
+python app.py
 
-# Build
-
-docker build . -t uno
-
-# Run
-
-docker run uno
+# Frontend Run
+cd frontend
+npm run dev

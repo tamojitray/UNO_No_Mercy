@@ -5,6 +5,7 @@ import Game from './components/Game';
 import Chat from './components/Chat';
 import BugReport from './components/BugReport';
 import RulesModal from './components/RulesModal';
+import LivePlayers from './components/LivePlayers';
 import { socket } from './socket';
 import axios from 'axios';
 
@@ -120,6 +121,9 @@ function App() {
       {(view === 'room' || view === 'game') && (
         <Chat roomCode={roomCode} username={username} />
       )}
+
+      {/* Global Live Players Counter */}
+      {view !== 'game' && <LivePlayers />}
 
       {/* Global Rules Button */}
       <button 

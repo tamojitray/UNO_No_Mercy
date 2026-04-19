@@ -17,6 +17,11 @@ rooms = {} # {'ROOMID' : {'player' : ['playername1','playername1'], 'started' : 
 sessions = {} # {'7c40fd705e1511751f6fbf5dd94936c7': {'username': 'player1', 'room_code': 'ANOLXK'}}
 user_sockets = {} # {'_41gysDDBbyMJtXhAAAB': '7c40fd705e1511751f6fbf5dd94936c7'}
 disconnect_timers = {}
+connected_clients = set()
+
+def broadcast_total_players():
+    """Broadcasts the total number of live players to all connected clients."""
+    socketio.emit("total_players_update", {"total_players": len(connected_clients)})
 
 def emit_player_hand(player_name, room_code):
     """Helper to emit hand data and valid indices to a specific player."""
@@ -392,6 +397,11 @@ def debug():
         "user_sockets": user_sockets,
         "disconnect_timers": disconnect_timers_info
     })
+
+@app.route('/total_players')
+def get_total_players():
+    # Return total connected sockets across the entire site
+    return jsonify({'total_players': len(connected_clients)})
 
 
 
@@ -1069,12 +1079,16 @@ def handle_transfer_leadership(data):
 
 @socketio.on("connect")
 def handle_connect():
-    print(f"Client connected: {request.sid}")
+    connected_clients.add(request.sid)
+    print(f"Client connected: {request.sid}. Total: {len(connected_clients)}")
+    broadcast_total_players()
 
 @socketio.on("disconnect")
 def handle_disconnect():
     sid = request.sid
-    print(f"Client transport close disconnected. SID: {sid}")
+    connected_clients.discard(sid)
+    broadcast_total_players()
+    print(f"Client disconnected. SID: {sid}. Total: {len(connected_clients)}")
 
     if sid not in user_sockets:
         print(f"Socket ID {sid} not found in active sessions. Possible early disconnect.")
