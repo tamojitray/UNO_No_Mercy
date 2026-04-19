@@ -13,6 +13,8 @@ const API_BASE = import.meta.env.PROD
   ? window.location.origin 
   : window.location.protocol + "//" + window.location.hostname + ":8000";
 
+import { getAllCardImageUrls, preloadImages } from './utils/preloader';
+
 function App() {
   const [view, setView] = useState('home'); // 'home' | 'room' | 'game'
   const [roomCode, setRoomCode] = useState('');
@@ -22,6 +24,12 @@ function App() {
 
   const [initialHandData, setInitialHandData] = useState(null);
   const [initialGameUpdate, setInitialGameUpdate] = useState(null);
+
+  useEffect(() => {
+    // Preload images once when app starts
+    const urls = getAllCardImageUrls();
+    preloadImages(urls);
+  }, []);
 
   useEffect(() => {
     const token = localStorage.getItem('session_token');
