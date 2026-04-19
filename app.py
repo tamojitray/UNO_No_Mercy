@@ -262,7 +262,7 @@ def handle_special_effects(game, card, player, color, room_code):
 def index():
     return render_template('main.html')
 
-@app.route('/create_room', methods=['POST'])
+@app.route('/create_room', methods=['POST'], strict_slashes=False)
 def create_room():
     data = request.get_json()
     player_name = data.get('username', '').strip()
@@ -280,7 +280,7 @@ def create_room():
     response = make_response(jsonify({'room_code': room_code, 'session_token': session_token}))
     return response
 
-@app.route('/join_room', methods=['POST'])
+@app.route('/join_room', methods=['POST'], strict_slashes=False)
 def join_room_route():
     data = request.json
     room_code = data.get('room_code', '').strip().upper()
@@ -312,7 +312,7 @@ def room(room_code):
     else:
         return "Room not found", 404
     
-@app.route('/get_username', methods=['POST'])
+@app.route('/get_username', methods=['POST'], strict_slashes=False)
 def get_username():
     data = request.get_json()
     session_token = data.get('session_token')
@@ -322,7 +322,7 @@ def get_username():
     else:
         return jsonify({'status': 'invalid'})
 
-@app.route('/start_game', methods=['POST'])
+@app.route('/start_game', methods=['POST'], strict_slashes=False)
 def start_game():
     data = request.json
     room_code = data.get('room_code')
@@ -1136,13 +1136,14 @@ def handle_send_message(data):
             "timestamp": time.strftime("%H:%M:%S")
         }, room=room_code)
 
-@app.route('/report_bug', methods=['POST'])
+@app.route('/report_bug', methods=['POST'], strict_slashes=False)
 def report_bug():
     data = request.json
     bug_message = data.get('bug')
     if not bug_message:
         return jsonify({'status': 'error', 'message': 'No bug message provided'}), 400
     
+    print(f"Received bug report: {bug_message}")
     with open('bugs.txt', 'a') as f:
         f.write(f"{time.strftime('%Y-%m-%d %H:%M:%S')} - {bug_message}\n")
     

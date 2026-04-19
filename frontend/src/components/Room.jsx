@@ -42,7 +42,7 @@ export default function Room({ roomCode, username, sessionToken, setView }) {
   const handleStartGame = async () => {
     setLoading(true);
     try {
-      const res = await axios.post(`${API_BASE}/start_game`, { room_code: roomCode, username });
+      const res = await axios.post(`${API_BASE}/start_game/`, { room_code: roomCode, username });
       if (res.data.status !== "started") {
           alert(res.data.status);
       }

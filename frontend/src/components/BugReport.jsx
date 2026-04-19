@@ -27,7 +27,7 @@ const BugReport = () => {
 
         setSending(true);
         try {
-            await axios.post(`${API_BASE}/report_bug`, { bug: trimmedBug });
+            await axios.post(`${API_BASE}/report_bug/`, { bug: trimmedBug });
             setBug('');
             setIsOpen(false);
         } catch (error) {

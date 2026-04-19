@@ -29,7 +29,7 @@ function App() {
     const user = localStorage.getItem('username');
     
     if (token && room && user) {
-      axios.post(`${API_BASE}/get_username`, { session_token: token })
+      axios.post(`${API_BASE}/get_username/`, { session_token: token })
         .then(res => {
           if (res.data.status === 'success' && res.data.username === user) {
             setSessionToken(token);

@@ -23,7 +23,7 @@ export default function Home({ setView, setRoomCode, setUsername, setSessionToke
     setLoading(true);
     setError('');
     try {
-      const res = await axios.post(`${API_BASE}/create_room`, { username: name });
+      const res = await axios.post(`${API_BASE}/create_room/`, { username: name });
       setRoomCode(res.data.room_code);
       setSessionToken(res.data.session_token);
       setUsername(name);
@@ -47,7 +47,7 @@ export default function Home({ setView, setRoomCode, setUsername, setSessionToke
     setLoading(true);
     setError('');
     try {
-      const res = await axios.post(`${API_BASE}/join_room`, {
+      const res = await axios.post(`${API_BASE}/join_room/`, {
         room_code: room.toUpperCase(),
         username: name
       });
