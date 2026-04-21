@@ -8,6 +8,7 @@ import RulesModal from './components/RulesModal';
 import LivePlayers from './components/LivePlayers';
 import { socket } from './socket';
 import axios from 'axios';
+import { useToast } from './context/ToastContext';
 
 const API_BASE = import.meta.env.PROD 
   ? window.location.origin 
@@ -24,6 +25,7 @@ function App() {
 
   const [initialHandData, setInitialHandData] = useState(null);
   const [initialGameUpdate, setInitialGameUpdate] = useState(null);
+  const { showToast } = useToast();
 
   useEffect(() => {
     // Preload images once when app starts
@@ -79,7 +81,7 @@ function App() {
     // the game_over event will be handled inside Game.jsx to allow players to view the board.
 
     socket.on('room_deleted', (data) => {
-        alert(data.message);
+        showToast(data.message, 'error');
         localStorage.clear();
         setView('home');
     });

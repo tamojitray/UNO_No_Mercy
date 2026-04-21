@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { socket } from '../socket';
 import Card from './Card';
+import { useToast } from '../context/ToastContext';
 
 export default function Game({ roomCode, username, sessionToken, setView, initialHandData, initialGameUpdate }) {
   const [hand, setHand] = useState(initialHandData ? initialHandData.hand : []);
@@ -23,6 +24,7 @@ export default function Game({ roomCode, username, sessionToken, setView, initia
   const [choosingPlayer, setChoosingPlayer] = useState(null); // array of players if active, else null
   const [pendingPlayInfo, setPendingPlayInfo] = useState(null); // { index, card }
   const [gameOver, setGameOver] = useState(null); // { winner }
+  const { showToast } = useToast();
   const [showCatchHint, setShowCatchHint] = useState(true);
   const [drawnRouletteCards, setDrawnRouletteCards] = useState([]);
   const rouletteTimeoutRef = useRef(null);
@@ -82,19 +84,19 @@ export default function Game({ roomCode, username, sessionToken, setView, initia
     };
 
     const onPlayError = (data) => {
-      alert(data.message);
+      showToast(data.message, 'error');
       setChoosingColor(false);
       setPendingPlayInfo(null);
     };
     
     const onPlayerDisqualified = (data) => {
-      alert(`${data.player} is eliminated from the game.`);
+      showToast(`${data.player} is eliminated from the game.`, 'info');
     };
     
     const onUnoCalled = (data) => {};
     
     const onUnoCaught = (data) => {
-      alert(`${data.caller} caught ${data.target_player}! ${data.target_player} auto-drawing 2 cards.`);
+      showToast(`${data.caller} caught ${data.target_player}! ${data.target_player} auto-drawing 2 cards.`, 'success');
     };
 
     const onSelectPlayerForSwap = (data) => {
@@ -200,7 +202,7 @@ export default function Game({ roomCode, username, sessionToken, setView, initia
 
   const handlePlayCard = (index, card) => {
     if (stats.current_player !== username) {
-        alert("It's not your turn!");
+        showToast("It's not your turn!", 'info');
         return;
     }
     
@@ -322,7 +324,7 @@ export default function Game({ roomCode, username, sessionToken, setView, initia
          <div className="flex flex-col items-center space-y-1 relative">
             <span className="text-[10px] md:text-xs uppercase tracking-widest text-slate-400 font-bold">Deck ({stats.draw_deck_size})</span>
             <div 
-                className={`relative w-16 sm:w-24 md:w-32 lg:w-40 rounded-xl cursor-pointer shadow-xl shadow-black/60 transition ${isMyTurn ? 'hover:scale-105 hover:ring-4 hover:ring-primary hover:shadow-primary/50' : 'opacity-70'}`}
+                className={`relative w-16 sm:w-24 md:w-32 lg:w-40 rounded-xl cursor-pointer deck-stack transition ${isMyTurn ? 'hover:scale-105 hover:ring-4 hover:ring-primary hover:shadow-primary/50' : 'opacity-70'}`}
                 style={{ aspectRatio: '2/3' }}
                 onClick={isMyTurn ? handleDrawCard : undefined}
             >
@@ -355,7 +357,9 @@ export default function Game({ roomCode, username, sessionToken, setView, initia
          <div className="flex flex-col items-center space-y-1">
             <span className="text-[10px] md:text-xs uppercase tracking-widest text-slate-400 font-bold">Discard ({stats.discard_pile_size})</span>
             {discardTop && (
-               <Card card={discardTop} stacked={false} isPlayable={false} noOverlay={true} />
+               <div className="deck-stack rounded-xl">
+                  <Card card={discardTop} stacked={false} isPlayable={false} noOverlay={true} />
+               </div>
             )}
          </div>
 

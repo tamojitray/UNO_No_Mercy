@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useToast } from '../context/ToastContext';
 
 const BugReport = () => {
     const [bug, setBug] = useState('');
     const [isOpen, setIsOpen] = useState(false);
     const [sending, setSending] = useState(false);
     const [showNotification, setShowNotification] = useState(false);
+    const { showToast } = useToast();
 
     const API_BASE = import.meta.env.PROD 
       ? window.location.origin 
@@ -30,9 +32,10 @@ const BugReport = () => {
             await axios.post(`${API_BASE}/report_bug/`, { bug: trimmedBug });
             setBug('');
             setIsOpen(false);
+            showToast('Bug report sent successfully!', 'success');
         } catch (error) {
             console.error('Failed to send bug report:', error);
-            alert('Failed to send bug report. Please try again later.');
+            showToast('Failed to send bug report. Please try again later.', 'error');
         } finally {
             setSending(false);
         }

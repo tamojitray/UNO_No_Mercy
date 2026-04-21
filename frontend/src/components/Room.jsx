@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { socket } from '../socket';
+import { useToast } from '../context/ToastContext';
 
 const API_BASE = import.meta.env.PROD 
   ? window.location.origin 
@@ -10,6 +11,7 @@ export default function Room({ roomCode, username, sessionToken, setView }) {
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const { showToast } = useToast();
 
   useEffect(() => {
     // Join the socket room
@@ -24,7 +26,7 @@ export default function Room({ roomCode, username, sessionToken, setView }) {
 
     function onPlayerKicked(data) {
         if (data.username === username) {
-            alert("You have been kicked from the room.");
+            showToast("You have been kicked from the room.", 'error');
             localStorage.clear();
             setView('home');
         }
@@ -44,11 +46,11 @@ export default function Room({ roomCode, username, sessionToken, setView }) {
     try {
       const res = await axios.post(`${API_BASE}/start_game/`, { room_code: roomCode, username });
       if (res.data.status !== "started") {
-          alert(res.data.status);
+          showToast(res.data.status, 'error');
       }
     } catch(err) {
       console.error(err);
-      alert("Error starting game.");
+      showToast("Error starting game.", 'error');
     } finally {
       setLoading(false);
     }
