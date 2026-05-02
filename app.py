@@ -398,7 +398,7 @@ def debug():
         "disconnect_timers": disconnect_timers_info
     })
 
-@app.route('/total_players')
+@app.route('/total_players', strict_slashes=False)
 def get_total_players():
     # Return total connected sockets across the entire site
     return jsonify({'total_players': len(connected_clients)})

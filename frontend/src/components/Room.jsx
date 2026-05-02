@@ -3,9 +3,7 @@ import axios from 'axios';
 import { socket } from '../socket';
 import { useToast } from '../context/ToastContext';
 
-const API_BASE = import.meta.env.PROD 
-  ? window.location.origin 
-  : window.location.protocol + "//" + window.location.hostname + ":8000";
+import { API_BASE } from '../config';
 
 export default function Room({ roomCode, username, sessionToken, setView }) {
   const [players, setPlayers] = useState([]);

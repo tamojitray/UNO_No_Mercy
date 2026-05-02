@@ -2,24 +2,28 @@ import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { socket } from '../socket';
 
-const API_BASE = import.meta.env.PROD 
-  ? window.location.origin 
-  : window.location.protocol + "//" + window.location.hostname + ":8000";
+import { API_BASE } from '../config';
 
 export default function LivePlayers() {
   const [totalPlayers, setTotalPlayers] = useState(0);
 
   useEffect(() => {
     const handleUpdate = (data) => {
-      setTotalPlayers(data.total_players);
+      if (data && typeof data.total_players !== 'undefined') {
+        setTotalPlayers(data.total_players);
+      }
     };
     
     socket.on('total_players_update', handleUpdate);
     
-    // Initial fetch
+    // Initial fetch on mount
     axios.get(`${API_BASE}/total_players`)
-      .then(res => setTotalPlayers(res.data.total_players))
-      .catch(err => console.error(err));
+      .then(res => {
+        if (res.data && typeof res.data.total_players !== 'undefined') {
+          setTotalPlayers(res.data.total_players);
+        }
+      })
+      .catch(err => console.error("Failed to fetch total players:", err));
 
     return () => {
       socket.off('total_players_update', handleUpdate);
@@ -34,7 +38,7 @@ export default function LivePlayers() {
       </div>
       <div className="flex flex-col">
         <span className="text-[10px] uppercase tracking-[0.2em] text-slate-400 font-black leading-none mb-1">Live Players</span>
-        <span className="text-lg md:text-xl font-display font-black text-white leading-none">{totalPlayers}</span>
+        <span className="text-lg md:text-xl font-display font-black text-white leading-none">{totalPlayers ?? 0}</span>
       </div>
     </div>
   );
