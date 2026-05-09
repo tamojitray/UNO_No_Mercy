@@ -6,6 +6,7 @@ import Chat from './components/Chat';
 import BugReport from './components/BugReport';
 import RulesModal from './components/RulesModal';
 import LivePlayers from './components/LivePlayers';
+import Tester from './components/Tester';
 import { socket } from './socket';
 import axios from 'axios';
 import { useToast } from './context/ToastContext';
@@ -20,6 +21,7 @@ function App() {
   const [username, setUsername] = useState('');
   const [sessionToken, setSessionToken] = useState('');
   const [showRules, setShowRules] = useState(false);
+  const [isTester, setIsTester] = useState(window.location.pathname === '/tester' || window.location.search.includes('tester=true'));
 
   const [initialHandData, setInitialHandData] = useState(null);
   const [initialGameUpdate, setInitialGameUpdate] = useState(null);
@@ -67,6 +69,11 @@ function App() {
       setView('game');
     }
 
+    const onGameOver = () => {
+        setInitialHandData(null);
+        setInitialGameUpdate(null);
+    };
+    
     socket.on('connect', onConnect);
     socket.on('disconnect', onDisconnect);
     socket.on('game_started', onGameStarted);
@@ -75,6 +82,7 @@ function App() {
         setInitialGameUpdate(data);
         setView('game');
     });
+    socket.on('game_over', onGameOver);
 
     // the game_over event will be handled inside Game.jsx to allow players to view the board.
 
@@ -90,13 +98,14 @@ function App() {
       socket.off('game_started', onGameStarted);
       socket.off('your_hand');
       socket.off('game_update');
+      socket.off('game_over');
       socket.off('room_deleted');
     };
   }, []);
 
   return (
     <div className="min-h-screen w-full flex items-center justify-center p-4">
-      {view === 'home' && (
+      {!isTester && view === 'home' && (
         <Home 
           setView={setView} 
           setRoomCode={setRoomCode} 
@@ -105,7 +114,7 @@ function App() {
         />
       )}
       
-      {view === 'room' && (
+      {!isTester && view === 'room' && (
         <Room 
           roomCode={roomCode} 
           username={username}
@@ -114,7 +123,7 @@ function App() {
         />
       )}
 
-      {view === 'game' && (
+      {!isTester && view === 'game' && (
         <Game 
           roomCode={roomCode} 
           username={username}
@@ -131,7 +140,7 @@ function App() {
       )}
 
       {/* Global Live Players Counter */}
-      {view !== 'game' && <LivePlayers />}
+      {view !== 'game' && !isTester && <LivePlayers />}
 
       {/* Global Rules Button */}
       <button 
@@ -143,7 +152,10 @@ function App() {
       </button>
 
       {/* Bug Report Component */}
-      <BugReport />
+      {!isTester && <BugReport />}
+
+      {/* Tester View */}
+      {isTester && <Tester />}
 
       {/* Rules Modal Overlay */}
       {showRules && <RulesModal onClose={() => setShowRules(false)} />}

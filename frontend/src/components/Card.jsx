@@ -3,7 +3,16 @@ import React from 'react';
 // Maps card values to image paths
 function getImagePath(color, typeOrValue) {
   if (color === 'Wild') {
-      return `/images/wild_${typeOrValue.toLowerCase().replaceAll(' ', '_')}.png`;
+    // Strip leading "Wild " prefix to avoid "wild_wild_..." filenames
+    // e.g. "Wild Final Attack" -> "Final Attack" -> "wild_final_attack.png"
+    const stripped = typeOrValue.startsWith('Wild ')
+      ? typeOrValue.slice(5)
+      : typeOrValue;
+    // "Discard All" image file is named "discard_all_of_color"
+    const filename = stripped === 'Discard All'
+      ? 'discard_all_of_color'
+      : stripped.toLowerCase().replaceAll(' ', '_');
+    return `/images/wild_${filename}.png`;
   }
   const val = typeOrValue.toString().toLowerCase().replaceAll(' ', '_');
   return `/images/${color.toLowerCase()}_${val}.png`;

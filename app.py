@@ -13,7 +13,7 @@ app = Flask(__name__)
 CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-rooms = {} # {'ROOMID' : {'player' : ['playername1','playername1'], 'started' : Flase, 'game' : None}}
+rooms = {} # {'ROOMID' : {'player' : ['playername1','playername1'], 'started' : Flase, 'game' : None, 'coins': {}}}
 sessions = {} # {'7c40fd705e1511751f6fbf5dd94936c7': {'username': 'player1', 'room_code': 'ANOLXK'}}
 user_sockets = {} # {'_41gysDDBbyMJtXhAAAB': '7c40fd705e1511751f6fbf5dd94936c7'}
 disconnect_timers = {}
@@ -51,9 +51,16 @@ def broadcast_game_state(room_code, player_who_acted=None):
         "draw_deck_size": len(game.deck),
         "discard_pile_size": len(game.discard_pile),
         "uno_flags": game.uno_flags,
-        "players": game.players
-    }, room=room_code)
-    
+        "players": game.players,
+        "coins_available": game.coins_available if game and hasattr(game, "coins_available") else {},
+        "player_coins": getattr(game, 'player_coins', {}),
+        "awaiting_wild_discard_all_color": getattr(game, 'awaiting_wild_discard_all_color', False),
+        "final_attack_pending": getattr(game, 'final_attack_pending', {}),
+        "final_attack_attacker": getattr(game, 'final_attack_attacker', None),
+        "awaiting_final_attack_color": getattr(game, 'awaiting_final_attack_color', False),
+        "roulette": getattr(game, 'roulette', False),
+        "roulette_attacker": getattr(game, 'roulette_attacker', None)
+    }, room=room_code)    
     # Update current player's hand (for valid indices)
     emit_player_hand(game.current_players_turn(), room_code)
     
@@ -147,12 +154,7 @@ def delayed_removal(token, stop_event, username, room_code):
 
                         # If only one player left after removal, end the game
                         if len(current_game.players) == 1:
-                            socketio.emit("game_over", {
-                                "winner": current_game.players[0],
-                                "discard_top": current_game.top_card()
-                            }, room=room_code)
-                            room_data['game'] = None
-                            room_data['started'] = False
+                            handle_game_over(room_code, current_game.players[0], current_game)
 
             # Cleanup session and timers
             if token in sessions:
@@ -162,18 +164,7 @@ def delayed_removal(token, stop_event, username, room_code):
             # Broadcast updates
             if room_data['started'] and current_game is not None:
                 socketio.emit("update_players", {"players": current_game.players, "game_started": True}, room=room_code)
-                socketio.emit("game_update", {
-                    "current_player": current_game.current_players_turn(),
-                    "discard_top": current_game.top_card(),
-                    "cards_left": current_game.cards_remaining(),
-                    "stacked_cards": current_game.stacked_cards,
-                    "playing_color": current_game.playing_color,
-                    "player_hands": {p: len(current_game.hands[p]) for p in current_game.players},
-                    "draw_deck_size": len(current_game.deck),
-                    "discard_pile_size": len(current_game.discard_pile),
-                    "uno_flags": current_game.uno_flags,
-                    "players": current_game.players
-                }, room=room_code)
+                broadcast_game_state(room_code)
             else:
                 socketio.emit("update_players", {"players": room_data['players'], "game_started": False}, room=room_code)
 
@@ -186,6 +177,45 @@ def delayed_removal(token, stop_event, username, room_code):
         print(f"User {token} permanently removed after inactivity.")
         print(f"Thread for {token} stopped")
 
+def emit_sid_for_player(player_name, room_code, event, data):
+    """Helper to emit an event to a specific player's socket."""
+    for sid, token in user_sockets.items():
+        if token in sessions and sessions[token]['username'] == player_name and sessions[token]['room_code'] == room_code:
+            socketio.emit(event, data, room=sid)
+            break
+
+def broadcast_coin_update(room_code):
+    """Broadcast coin selection status to entire room."""
+    coins = rooms[room_code].get('coins', {})
+    socketio.emit("coin_update", {"coins": coins}, room=room_code)
+
+def handle_game_over(room_code, winner, game):
+    """Ends the game, resets room state and game flags."""
+    rooms[room_code]['started'] = False
+    rooms[room_code]['game'] = None
+    rooms[room_code]['coins'] = {}  # Reset coin choices
+    broadcast_coin_update(room_code)
+    if game:
+        game.stacked_cards = 0
+        game.draw_pending = False
+        game.draw_started = False
+        socketio.emit("game_over", {"winner": winner, "discard_top": game.top_card()}, room=room_code)
+    else:
+        socketio.emit("game_over", {"winner": winner}, room=room_code)
+
+def handle_elimination_check(game, player, room_code):
+    """Check if a player should be eliminated (>= 25 cards). Returns True if eliminated."""
+    if len(game.hands.get(player, [])) >= 25:
+        if len(game.players) == 2:
+            winner = [p for p in game.players if p != player][0]
+            handle_game_over(room_code, winner, game)
+            return True
+        game.remove_player(player)
+        socketio.emit("player_disqualified", {"player": player}, room=room_code)
+        socketio.emit("update_players", {"players": game.players, "game_started": rooms[room_code]['started']}, room=room_code)
+        return True
+    return False
+
 def handle_special_effects(game, card, player, color, room_code):
     # Implement special card logic here
     if card['type'] == 'Reverse':
@@ -195,39 +225,157 @@ def handle_special_effects(game, card, player, color, room_code):
     elif card['type'] == 'Skip':
         game.next_player()
 
+    elif card['type'] == '10':
+        # Do NOT advance turn — player gets another turn immediately.
+        # We signal the caller not to call next_player by setting a flag.
+        game.play_again_active = True
+
     elif card['type'] == 'Draw Two':
-        game.stacked_cards += 2
+        if game.no_mercy_active:
+            game.stacked_cards += 2 * 2
+            game.no_mercy_active = False
+            game.coins_available[player] = False
+            socketio.emit("coin_activated", {"player": player, "coin": "No Mercy", "victim": game.players[1], "used": True}, room=room_code)
+        else:
+            game.stacked_cards += 2
         game.draw_pending = True
 
     elif card['type'] == 'Draw Four':
-        game.stacked_cards += 4
+        if game.no_mercy_active:
+            game.stacked_cards += 4 * 2
+            game.no_mercy_active = False
+            game.coins_available[player] = False
+            socketio.emit("coin_activated", {"player": player, "coin": "No Mercy", "victim": game.players[1], "used": True}, room=room_code)
+
+        else:
+            game.stacked_cards += 4
         game.draw_pending = True
 
     elif card['type'] == 'Draw Six':
-        game.stacked_cards += 6
+        if game.no_mercy_active:
+            game.stacked_cards += 6 * 2
+            game.no_mercy_active = False
+            game.coins_available[player] = False
+            socketio.emit("coin_activated", {"player": player, "coin": "No Mercy", "victim": game.players[1], "used": True}, room=room_code)
+        else:
+            game.stacked_cards += 6
         game.draw_pending = True
 
     elif card['type'] == 'Draw Ten':
-        game.stacked_cards += 10
+        if game.no_mercy_active:
+            game.stacked_cards += 10 * 2
+            game.no_mercy_active = False
+            game.coins_available[player] = False
+            socketio.emit("coin_activated", {"player": player, "coin": "No Mercy", "victim": game.players[1], "used": True}, room=room_code)
+        else:
+            game.stacked_cards += 10
         game.draw_pending = True
-
     elif card['type'] == 'Reverse Draw Four':
-        game.stacked_cards += 4
         game.draw_pending = True
         game.reverse_player()
         socketio.emit("update_players", {"players": game.players, "game_started": rooms[room_code]['started']}, room=room_code)
+        if game.no_mercy_active:
+            game.stacked_cards += 4 * 2
+            game.no_mercy_active = False
+            game.coins_available[player] = False
+            # After reversal, game.players[1] is the correct victim in all player counts
+            socketio.emit("coin_activated", {"player": player, "coin": "No Mercy", "victim": game.players[1], "used": True}, room=room_code)
+        else:
+            game.stacked_cards += 4
+
+    elif card['type'] == 'Wild Reverse Draw Eight':
+        game.draw_pending = True
+        game.reverse_player()
+        socketio.emit("update_players", {"players": game.players, "game_started": rooms[room_code]['started']}, room=room_code)
+        if game.no_mercy_active:
+            game.stacked_cards += 8 * 2
+            game.no_mercy_active = False
+            game.coins_available[player] = False
+            # After reversal, game.players[1] is the correct victim in all player counts
+            socketio.emit("coin_activated", {"player": player, "coin": "No Mercy", "victim": game.players[1], "used": True}, room=room_code)
+        else:
+            game.stacked_cards += 8
 
     elif card['type'] == 'Discard All of Color':
         valid_color_index = game.find_valid_color_index(player, color)
-        print("Disacrd all color indexes", valid_color_index)
+        print("Discard all color indexes", valid_color_index)
         temp_card = game.discard_pile.pop()
         while len(valid_color_index) != 0:
             card = game.hands[player].pop(int(valid_color_index[0]))
             game.discard_pile.append(card)
             valid_color_index = game.find_valid_color_index(player, color)
-            print("Disacrd all color indexes 2", valid_color_index)
+            print("Discard all color indexes 2", valid_color_index)
         game.discard_pile.append(temp_card)
-        game.playing_color = temp_card['color']    
+        game.playing_color = temp_card['color']
+
+    elif card['type'] == 'Wild Discard All':
+        # Phase 1: Discard cards of the chosen color
+        # The Wild Discard All card is already on top of the discard pile (from handle_play_card)
+        # We temporarily remove it to place it back on top of the discarded cards
+        wild_card = game.discard_pile.pop()
+        
+        valid_color_index = game.find_valid_color_index(player, color)
+        while len(valid_color_index) != 0:
+            card_to_discard = game.hands[player].pop(int(valid_color_index[0]))
+            game.discard_pile.append(card_to_discard)
+            valid_color_index = game.find_valid_color_index(player, color)
+        
+        # Now place the Wild Discard All card back on top
+        game.discard_pile.append(wild_card)
+        game.playing_color = color  # Color of cards discarded
+        
+        # Enter Phase 2: Awaiting final playing color choice
+        game.awaiting_wild_discard_all_color = True
+        game.awaiting_color_choice = True
+
+    elif card['type'] == 'Wild Final Attack':
+        # Phase 1: Reveal hand and set pending draws
+        player_hand = game.hands[player]
+        action_wild_count = game.count_action_and_wild_cards(player)
+        
+        # Determine draw counts
+        if action_wild_count >= 7:
+            next_draw_val = 24
+            others_draw_val = 5
+        else:
+            next_draw_val = action_wild_count
+            others_draw_val = 0
+            
+        game.final_attack_attacker = player
+        game.final_attack_pending = {}
+        
+        # Identify next player (victim)
+        idx = game.players.index(player)
+        victim_idx = (idx + 1) % len(game.players)
+        victim = game.players[victim_idx]
+        
+        # Set pending draws for victim
+        if next_draw_val > 0:
+            game.final_attack_pending[victim] = next_draw_val
+            
+        # Set pending draws for others if >= 7
+        if others_draw_val > 0:
+            for p in game.players:
+                if p != player and p != victim:
+                    game.final_attack_pending[p] = others_draw_val
+                    
+        # Emit reveal_hand to all
+        socketio.emit("reveal_hand", {
+            "player": player,
+            "hand": player_hand,
+            "action_wild_count": action_wild_count
+        }, room=room_code)
+        
+        # No turn advancement yet, no color choice yet.
+        return
+
+    elif card['type'] == 'Wild Sudden Death':
+        # All players draw until they have 24 cards
+        for p in list(game.players):
+            game.ensure_deck()
+            game.draw_until_24(p)
+            if not handle_elimination_check(game, p, room_code):
+                emit_player_hand(p, room_code)
 
     elif card['type'] == 'Skip All':
         game.skip_all()
@@ -272,7 +420,7 @@ def create_room():
     session_token = generate_session_token()
 
     if room_code not in rooms:
-        rooms[room_code] = {'players': [], 'started': False, 'game': None}
+        rooms[room_code] = {'players': [], 'started': False, 'game': None, 'coins': {}}
     
     rooms[room_code]['players'].append(player_name)
     sessions[session_token] = {'username': player_name, 'room_code': room_code}
@@ -330,9 +478,17 @@ def start_game():
 
     if room_code in rooms and rooms[room_code]['players'][0] == username:
         if len(rooms[room_code]['players']) >= 2:
+            # Validate all players have chosen a coin
+            coins = rooms[room_code].get('coins', {})
+            players_list = rooms[room_code]['players']
+            missing_coins = [p for p in players_list if coins.get(p) not in ('Mercy', 'No Mercy')]
+            if missing_coins:
+                return jsonify({'status': 'coins_not_chosen', 'missing': missing_coins})
+
             rooms[room_code]['started'] = True
 
-            game = Unogame(*rooms[room_code]['players'])
+            game = Unogame(*players_list)
+            game.set_coins(coins)
             rooms[room_code]['game'] = game
 
             for sid, session_token in user_sockets.items():
@@ -344,25 +500,15 @@ def start_game():
                         emit_player_hand(player_name, room_code)
 
             socketio.emit("game_started", {
-                "shuffled_players": game.players, 
+                "shuffled_players": game.players,
                 "cards_left": game.cards_remaining(),
-                "discard_top": game.top_card() if game.discard_pile else None
+                "discard_top": game.top_card() if game.discard_pile else None,
+                "coins": coins
             }, room=room_code)
 
             # Broadcast game update
-            socketio.emit("game_update", {
-                "current_player": game.current_players_turn(),
-                "discard_top": game.top_card(),
-                "cards_left": game.cards_remaining(),
-                "stacked_cards": game.stacked_cards,  # Add stack counter
-                "playing_color": game.playing_color,  # Add playing color
-                "player_hands": {player: len(game.hands[player]) for player in game.players},  # Add hand sizes
-                "draw_deck_size": len(game.deck),
-                "discard_pile_size": len(game.discard_pile),
-                "uno_flags": game.uno_flags,
-            "players": game.players
-            }, room=room_code)
-            
+            broadcast_game_state(room_code)
+
             return jsonify({'status': 'started'})
         return jsonify({'status': 'not_enough_players'})
     return jsonify({'status': 'unauthorized'})
@@ -398,6 +544,95 @@ def debug():
         "disconnect_timers": disconnect_timers_info
     })
 
+@app.route('/admin/execute', methods=['POST'])
+def admin_execute():
+    data = request.json
+    room_code = data.get('room_code')
+    command = data.get('command')
+    params = data.get('params', {})
+
+    if room_code not in rooms:
+        return jsonify({'status': 'error', 'message': 'Room not found'}), 404
+    
+    room = rooms[room_code]
+    game = room.get('game')
+    
+    if not game:
+        return jsonify({'status': 'error', 'message': 'Game not started'}), 400
+
+    if command == 'set_hand':
+        player = params.get('player')
+        hand = params.get('hand') # list of card objects
+        if player in game.hands:
+            game.hands[player] = hand
+            broadcast_game_state(room_code)
+            emit_player_hand(player, room_code)
+            return jsonify({'status': 'success'})
+
+    elif command == 'add_card':
+        player = params.get('player')
+        card = params.get('card') # card object
+        if player in game.hands:
+            game.hands[player].append(card)
+            broadcast_game_state(room_code)
+            emit_player_hand(player, room_code)
+            return jsonify({'status': 'success'})
+
+    elif command == 'remove_card':
+        player = params.get('player')
+        index = params.get('index')
+        if player in game.hands and 0 <= index < len(game.hands[player]):
+            game.hands[player].pop(index)
+            broadcast_game_state(room_code)
+            emit_player_hand(player, room_code)
+            return jsonify({'status': 'success'})
+
+    elif command == 'set_turn':
+        player = params.get('player')
+        if player in game.players:
+            # Move player to the front of the list
+            attempts = 0
+            while game.players[0] != player and attempts < len(game.players):
+                game.players.append(game.players.pop(0))
+                attempts += 1
+            broadcast_game_state(room_code)
+            return jsonify({'status': 'success'})
+
+    elif command == 'set_param':
+        key = params.get('key')
+        value = params.get('value')
+        if hasattr(game, key):
+            setattr(game, key, value)
+            broadcast_game_state(room_code)
+            # Some params might require hand update (like valid indices)
+            for p in game.players:
+                emit_player_hand(p, room_code)
+            return jsonify({'status': 'success'})
+
+    elif command == 'set_discard':
+        card = params.get('card')
+        game.discard_pile.append(card)
+        game.playing_color = card['color'] if card['color'] != 'Wild' else params.get('color', 'Red')
+        broadcast_game_state(room_code)
+        return jsonify({'status': 'success'})
+            
+    return jsonify({'status': 'error', 'message': 'Unknown command'}), 400
+
+@app.route('/admin/cards')
+def admin_cards():
+    from cards import deck
+    # Return unique card types (based on type and color)
+    unique_cards = []
+    seen = set()
+    for card in deck:
+        key = (card['color'], card['type'])
+        if key not in seen:
+            unique_cards.append(card)
+            seen.add(key)
+    return jsonify(unique_cards)
+
+
+
 @app.route('/total_players', strict_slashes=False)
 def get_total_players():
     # Return total connected sockets across the entire site
@@ -421,8 +656,47 @@ def handle_draw_card(data):
     game = rooms[room_code].get('game')
     player = sessions[session_token]['username'] 
 
+    # Handle manual drawing for Wild Final Attack penalty
+    if game and player in getattr(game, 'final_attack_pending', {}):
+        drawn_card = game.draw_card(player)
+        game.final_attack_pending[player] -= 1
+        if game.final_attack_pending[player] <= 0:
+            del game.final_attack_pending[player]
+        
+        # Emit card drawn event
+        socketio.emit("card_drawn", {
+            "player": player,
+            "new_card": drawn_card,
+            "cards_left": game.cards_remaining()
+        }, room=request.sid)
+
+        # Check for elimination
+        if len(game.hands[player]) >= 25:
+            if len(game.players) == 2:
+                handle_game_over(room_code, [p for p in game.players if p != player][0], game)
+                return
+            game.remove_player(player)
+            socketio.emit("player_disqualified", {"player": player}, room=room_code)
+            socketio.emit("update_players", {"players": game.players, "game_started": rooms[room_code]['started']}, room=room_code)
+            # Remove from pending if they were disqualified
+            if player in game.final_attack_pending:
+                del game.final_attack_pending[player]
+
+        # Check if all finished
+        if not game.final_attack_pending:
+            game.awaiting_final_attack_color = True
+            game.awaiting_color_choice = True
+            
+        broadcast_game_state(room_code, player)
+        return
+
+    # Normal turn checks
     if game.current_players_turn() != player:
         emit("play_error", {"message": "It's not your turn!"}, room=request.sid)
+        return
+        
+    if bool(getattr(game, 'final_attack_pending', {})):
+        emit("play_error", {"message": "Wait for others to finish drawing from Final Attack!"}, room=request.sid)
         return
 
     if game.roulette and game.awaiting_color_choice:
@@ -435,12 +709,7 @@ def handle_draw_card(data):
 
     if len(game.hands[player]) >= 25:
         if len(game.players) == 2:
-            rooms[room_code]['started'] = False
-            rooms[room_code]['game'] = None
-            emit("game_over", {
-                "winner": game.players[1], 
-                "discard_top": game.top_card()
-            }, room=room_code)
+            handle_game_over(room_code, game.players[1], game)
             return
             
         game.remove_player(player)
@@ -448,18 +717,7 @@ def handle_draw_card(data):
         socketio.emit("player_disqualified", {"player": player}, room=room_code)
         socketio.emit("update_players", {"players": game.players, "game_started": rooms[room_code]['started']}, room=room_code)
 
-        socketio.emit("game_update", {
-            "current_player": game.current_players_turn(),
-            "discard_top": game.top_card(),
-            "cards_left": game.cards_remaining(),
-            "stacked_cards": game.stacked_cards,  # Add stack counter
-            "playing_color": game.playing_color,  # Add playing color
-            "player_hands": {player: len(game.hands[player]) for player in game.players},  # Add hand sizes
-            "draw_deck_size": len(game.deck),
-            "discard_pile_size": len(game.discard_pile),
-            "uno_flags": game.uno_flags,
-            "players": game.players
-        }, room=room_code)
+        broadcast_game_state(room_code, player)
             
         
         # Send updated hand to player
@@ -470,6 +728,10 @@ def handle_draw_card(data):
             "cards_left": game.cards_remaining()
         }, room=request.sid)
 
+        return
+
+            
+        broadcast_game_state(room_code, player)
         return
 
     if game.awaiting_player_choice == True:
@@ -489,15 +751,7 @@ def handle_draw_card(data):
 
             if len(game.hands[player]) >= 25:
                 if len(game.players) == 2:
-                    rooms[room_code]['started'] = False
-                    rooms[room_code]['game'] = None
-                    game.stacked_cards = 0
-                    game.draw_pending = False
-                    game.draw_started = False
-                    emit("game_over", {
-                        "winner": game.players[1], 
-                        "discard_top": game.top_card()
-                    }, room=room_code)
+                    handle_game_over(room_code, game.players[1], game)
                     return
                 game.remove_player(player)
 
@@ -533,19 +787,12 @@ def handle_draw_card(data):
                 socketio.emit("roulette_draw", {'card_drawn' : drawn_card, 'player': player}, room=room_code)
                 if drawn_card['color'] == game.playing_color:
                     game.roulette = False
+                    game.roulette_attacker = None
                     game.next_player()
 
         if len(game.hands[player]) >= 25:
             if len(game.players) == 2:
-                rooms[room_code]['started'] = False
-                rooms[room_code]['game'] = None
-                game.stacked_cards = 0
-                game.draw_pending = False
-                game.draw_started = False
-                emit("game_over", {
-                    "winner": game.players[1], 
-                    "discard_top": game.top_card()
-                }, room=room_code)
+                handle_game_over(room_code, game.players[1], game)
                 return
             game.remove_player(player)
 
@@ -566,6 +813,8 @@ def handle_draw_card(data):
         # Update hands and game state for everyone
         broadcast_game_state(room_code, player)
             
+# Add to handle_play_card function
+
 # Add to handle_play_card function
 @socketio.on("play_card")
 def handle_play_card(data):
@@ -588,6 +837,14 @@ def handle_play_card(data):
     if not game or index is None:
         return
     
+    if game.current_players_turn() != player:
+        emit("play_error", {"message": "It's not your turn!"}, room=request.sid)
+        return
+        
+    if bool(getattr(game, 'final_attack_pending', {})):
+        emit("play_error", {"message": "Wait for others to finish drawing from Final Attack!"}, room=request.sid)
+        return
+
     if game.awaiting_player_choice == True:
         emit("play_error", {"message": "You must select a player to swap hands with!"}, room=request.sid)
         return
@@ -598,9 +855,7 @@ def handle_play_card(data):
     
     if len(game.hands[player]) >= 25:
         if len(game.players) == 2:
-            rooms[room_code]['started'] = False
-            rooms[room_code]['game'] = None
-            emit("game_over", {"winner": game.players[1], "discard_top": game.top_card()}, room=room_code)
+            handle_game_over(room_code, game.players[1], game)
             return
             
         game.remove_player(player)
@@ -608,18 +863,7 @@ def handle_play_card(data):
         socketio.emit("player_disqualified", {"player": player}, room=room_code)
         socketio.emit("update_players", {"players": game.players, "game_started": rooms[room_code]['started']}, room=room_code)
 
-        socketio.emit("game_update", {
-            "current_player": game.current_players_turn(),
-            "discard_top": game.top_card(),
-            "cards_left": game.cards_remaining(),
-            "stacked_cards": game.stacked_cards,  # Add stack counter
-            "playing_color": game.playing_color,  # Add playing color
-            "player_hands": {player: len(game.hands[player]) for player in game.players},  # Add hand sizes
-            "draw_deck_size": len(game.deck),
-            "discard_pile_size": len(game.discard_pile),
-            "uno_flags": game.uno_flags,
-            "players": game.players
-        }, room=room_code)
+        broadcast_game_state(room_code, player)
             
         
         # Send updated hand to player
@@ -633,64 +877,85 @@ def handle_play_card(data):
         return
     
     if game.roulette == False:
-    
+
         # Validate turn
         if game.current_players_turn() != player:
             emit("play_error", {"message": "It's not your turn!"}, room=request.sid)
             return
-        
+
         if game.draw_pending == True and game.draw_started == True:
-            emit("play_error", {"message": "Draw started, Draw all the crads"}, room=request.sid)
+            emit("play_error", {"message": "Draw started, Draw all the cards"}, room=request.sid)
             return
-        
+
         if game.draw_pending == True and game.draw_started == False:
-            valid_indices = game.find_staking_cards(player)        
-        
+            valid_indices = game.find_staking_cards(player)
+
         if game.draw_pending == False and game.draw_started == False:
             valid_indices = game.find_valid_cards(player)
-        
+
         if int(index) not in valid_indices:
             emit("play_error", {"message": "Invalid card selection!"}, room=request.sid)
             return
-        
+
         # Remove card from hand
         try:
             card = game.hands[player].pop(int(index))
         except IndexError:
-            emit("play_error", {
-                "message": "Invalid card index!"}, room=request.sid)
+            emit("play_error", {"message": "Invalid card index!"}, room=request.sid)
             return
 
         if len(game.hands[player]) == 0:
             game.discard_pile.append(card)
-            rooms[room_code]['started'] = False
-            rooms[room_code]['game'] = None
-            socketio.emit("game_over", {"winner": player, "discard_top": game.top_card()}, room=room_code)
+            handle_game_over(room_code, player, game)
             return
-        
+
         if card['color'] == 'Wild' and card['type'] == 'Color Roulette':
             game.roulette = True
+            game.roulette_attacker = player
             game.awaiting_color_choice = True
             game.playing_color = 'Wild'
             print("Roulette mode activated")
-        
-        # Handle Wild cards
-        if card['color'] == 'Wild' and card['type'] != 'Color Roulette':
+
+        if card['color'] == 'Wild' and card['type'] not in ['Color Roulette', 'Wild Final Attack']:
             if not chosen_color or chosen_color not in ['Red', 'Blue', 'Green', 'Yellow']:
                 emit("play_error", {"message": "Please select a valid color!"}, room=request.sid)
                 game.hands[player].append(card)  # Return card to hand
                 return
             game.playing_color = chosen_color
-        else:
+        elif card['color'] != 'Wild':
             game.playing_color = card['color']
-        
+
         # Add to discard pile
         game.discard_pile.append(card)
-        
+
+        # Reset play_again flag before handling effects
+        game.play_again_active = False
+
         # Handle special effects
-        handle_special_effects(game, card, player, game.playing_color, room_code)
-        
-        if not game.awaiting_player_choice:
+        handle_special_effects(game, card, player, chosen_color or game.playing_color, room_code)
+
+        # Check for win again after special effects (Discard All cards may empty hand)
+        if len(game.hands[player]) == 0:
+            handle_game_over(room_code, player, game)
+            return
+
+
+        # Deactivate No Mercy if it wasn't consumed by a draw card
+        if getattr(game, 'no_mercy_active', False):
+            game.no_mercy_active = False
+            socketio.emit("coin_deactivated", {"player": player, "coin": "No Mercy"}, room=room_code)
+
+        # Advance turn unless:
+        # - player choice pending (7 card swap)
+        # - play again active (10)
+        # - awaiting any wild color choice (Discard All phase2)
+        awaiting_any = (
+            game.awaiting_player_choice
+            or getattr(game, 'play_again_active', False)
+            or getattr(game, 'awaiting_wild_discard_all_color', False)
+            or bool(getattr(game, 'final_attack_pending', {}))
+        )
+        if not awaiting_any:
             game.next_player()
 
         if len(game.hands[player]) > 1:
@@ -701,16 +966,142 @@ def handle_play_card(data):
 
         if game.roulette and game.awaiting_color_choice:
             current_player = game.current_players_turn()
-            # Find the current player's socket
             for sid in user_sockets:
                 token = user_sockets[sid]
                 session_data = sessions.get(token)
                 if session_data and session_data['room_code'] == room_code and session_data['username'] == current_player:
-                    emit("roulette", {}, room=sid)
+                    emit("roulette", {"attacker": player}, room=sid)
                     break
-    
+
     else:
-        socketio.emit("play_error", {"message": "You must draw cards until you get a card that matches the color choosen."}, room=request.sid)
+        socketio.emit("play_error", {"message": "You must draw cards until you get a card that matches the color chosen."}, room=request.sid)
+
+@socketio.on("choose_coin")
+def handle_choose_coin(data):
+    room_code = data.get('room')
+    coin = data.get('coin')  # 'Mercy' or 'No Mercy'
+    session_token = user_sockets.get(request.sid)
+
+    if not session_token or session_token not in sessions:
+        return
+    if room_code not in rooms or rooms[room_code]['started']:
+        return
+    if coin not in ('Mercy', 'No Mercy'):
+        emit("play_error", {"message": "Invalid coin choice"}, room=request.sid)
+        return
+
+    username = sessions[session_token]['username']
+    if username not in rooms[room_code]['players']:
+        return
+
+    rooms[room_code].setdefault('coins', {})[username] = coin
+    broadcast_coin_update(room_code)
+
+@socketio.on("use_coin")
+def handle_use_coin(data):
+    room_code = data.get('room')
+    session_token = user_sockets.get(request.sid)
+
+    if not session_token or session_token not in sessions or sessions[session_token]['room_code'] != room_code:
+        return
+    if room_code not in rooms or not rooms[room_code]['started']:
+        return
+
+    game = rooms[room_code].get('game')
+    player = sessions[session_token]['username']
+
+    is_mercy = game.player_coins.get(player) == 'Mercy'
+    has_pending_attack = player in getattr(game, 'final_attack_pending', {})
+    
+    if not game or (game.current_players_turn() != player and not (is_mercy and has_pending_attack)):
+        emit("play_error", {"message": "It's not your turn!"}, room=request.sid)
+        return
+
+    if not game.coins_available.get(player, False):
+        emit("play_error", {"message": "You have already used your coin!"}, room=request.sid)
+        return
+
+    coin_type = game.player_coins.get(player)
+
+    if coin_type == 'No Mercy':
+        # Check player has a playable draw card
+        if not game.has_playable_draw_card(player):
+            emit("play_error", {"message": "No Mercy coin can only be used when you have a playable draw card!"}, room=request.sid)
+            return
+        game.no_mercy_active = True
+        # Only notify the attacker that it's activated
+        emit("coin_activated", {"player": player, "coin": "No Mercy", "activated_only": True}, room=request.sid)
+        broadcast_game_state(room_code, player)
+
+    elif coin_type == 'Mercy':
+        # Clear any pending Final Attack draws for this player
+        if has_pending_attack:
+            del game.final_attack_pending[player]
+            
+        # Apply mercy immediately: put hand into deck, draw 7
+        game.apply_mercy_coin(player)
+        socketio.emit("coin_activated", {"player": player, "coin": "Mercy"}, room=room_code)
+        
+        # Check if all finished
+        if has_pending_attack and not game.final_attack_pending:
+            game.awaiting_final_attack_color = True
+            game.awaiting_color_choice = True
+            
+        # Mercy does NOT end the player's turn - they still play normally after
+        broadcast_game_state(room_code, player)
+
+@socketio.on("wild_color_chosen")
+def handle_wild_color_chosen(data):
+    """Final color choice for Wild Final Attack or Wild Sudden Death."""
+    room_code = data.get('room')
+    color = data.get('color')
+    card_type = data.get('card_type')
+    session_token = user_sockets.get(request.sid)
+
+    if not session_token or session_token not in sessions or sessions[session_token]['room_code'] != room_code:
+        return
+    if room_code not in rooms or not rooms[room_code]['started']:
+        return
+
+    game = rooms[room_code].get('game')
+    player = sessions[session_token]['username']
+
+    if not game:
+        return
+    if color not in ['Red', 'Blue', 'Green', 'Yellow']:
+        emit("play_error", {"message": "Invalid color!"}, room=request.sid)
+        return
+
+    if card_type == 'Wild Final Attack' and game.awaiting_final_attack_color:
+        game.playing_color = color
+        game.awaiting_final_attack_color = False
+        game.awaiting_color_choice = False
+        if len(game.hands[player]) > 1:
+            game.reset_uno(player)
+        
+        # Skip the next player (the one who would have drawn)
+        # Advance turn twice. In 2-player, this returns to the current player.
+        game.next_player()
+        game.next_player()
+        
+        broadcast_game_state(room_code, player)
+
+    elif card_type == 'Wild Sudden Death' and game.awaiting_sudden_death_color:
+        game.playing_color = color
+        game.awaiting_sudden_death_color = False
+        if len(game.hands[player]) > 1:
+            game.reset_uno(player)
+        game.next_player()
+        broadcast_game_state(room_code, player)
+
+    elif card_type == 'Wild Discard All' and game.awaiting_wild_discard_all_color:
+        game.playing_color = color
+        game.awaiting_wild_discard_all_color = False
+        game.awaiting_color_choice = False
+        if len(game.hands[player]) > 1:
+            game.reset_uno(player)
+        game.next_player()
+        broadcast_game_state(room_code, player)
 
 @socketio.on("check_game_states")
 def handle_check_game_states(data):
@@ -733,6 +1124,19 @@ def handle_check_game_states(data):
                     "current_player": current_player,
                     "available_players": other_players
                 })
+            # Check for pending Wild Discard All color choice
+            elif getattr(game, 'awaiting_wild_discard_all_color', False):
+                emit("pending_wild_discard_all_color", {
+                    "needs_selection": True,
+                    "current_player": current_player
+                })
+            # Check for pending Wild Final Attack color choice
+            elif getattr(game, 'awaiting_final_attack_color', False):
+                emit("pending_final_attack_color", {
+                    "needs_selection": True,
+                    "current_player": current_player
+                })
+
                 
 @socketio.on("call_uno")
 def handle_call_uno(data):
@@ -754,35 +1158,13 @@ def handle_call_uno(data):
         if game.current_players_turn() == player:
             game.call_uno(player)
             socketio.emit("uno_called", {"player": player}, room=room_code)
-            socketio.emit("game_update", {
-                "current_player": game.current_players_turn(),
-                "discard_top": game.top_card(),
-                "cards_left": game.cards_remaining(),
-                "stacked_cards": game.stacked_cards,
-                "playing_color": game.playing_color,
-                "player_hands": {player: len(game.hands[player]) for player in game.players},
-                "draw_deck_size": len(game.deck),
-                "discard_pile_size": len(game.discard_pile),
-                "uno_flags": game.uno_flags,
-            "players": game.players
-            }, room=room_code)
+            broadcast_game_state(room_code, player)
 
         elif len(game.hands[player]) == 1:
             if game.has_called_uno(player) == False:
                 game.call_uno(player)
                 socketio.emit("uno_called", {"player": player}, room=room_code)
-                socketio.emit("game_update", {
-                    "current_player": game.current_players_turn(),
-                    "discard_top": game.top_card(),
-                    "cards_left": game.cards_remaining(),
-                    "stacked_cards": game.stacked_cards,
-                    "playing_color": game.playing_color,
-                    "player_hands": {player: len(game.hands[player]) for player in game.players},
-                    "draw_deck_size": len(game.deck),
-                    "discard_pile_size": len(game.discard_pile),
-                    "uno_flags": game.uno_flags,
-            "players": game.players
-                }, room=room_code)
+                broadcast_game_state(room_code, player)
             else:
                 emit("play_error", {"message": "You have already called UNO!"}, room=request.sid)
         else:
@@ -824,18 +1206,7 @@ def handle_catch_uno(data):
                     }, room=sid)
                     break
             
-            socketio.emit("game_update", {
-                "current_player": game.current_players_turn(),
-                "discard_top": game.top_card(),
-                "cards_left": game.cards_remaining(),
-                "stacked_cards": game.stacked_cards,
-                "playing_color": game.playing_color,
-                "player_hands": {player: len(game.hands[player]) for player in game.players},
-                "draw_deck_size": len(game.deck),
-                "discard_pile_size": len(game.discard_pile),
-                "uno_flags": game.uno_flags,
-            "players": game.players
-            }, room=room_code)
+            broadcast_game_state(room_code, caller)
         else:
             emit("play_error", {"message": f"{target_player} already called UNO or doesn't have 1 card!"}, room=request.sid)
 
@@ -850,18 +1221,7 @@ def handle_color_selected(data):
         game.playing_color = color
 
         # Broadcast game update
-        socketio.emit("game_update", {
-            "current_player": game.current_players_turn(),
-            "discard_top": game.top_card(),
-            "cards_left": game.cards_remaining(),
-            "stacked_cards": game.stacked_cards,  # Add stack counter
-            "playing_color": game.playing_color,  # Add playing color
-            "player_hands": {player: len(game.hands[player]) for player in game.players},  # Add hand sizes
-            "draw_deck_size": len(game.deck),
-            "discard_pile_size": len(game.discard_pile),
-            "uno_flags": game.uno_flags,
-            "players": game.players
-        }, room=room_code)
+        broadcast_game_state(room_code)
 
 @socketio.on("check_roulette_state")
 def handle_check_roulette_state(data):
@@ -970,6 +1330,7 @@ def handle_join_room(data):
     print(sessions)
     print(rooms)
     emit("update_players", {"players": rooms[room_code]['players'], "game_started": rooms[room_code]['started']}, room=room_code)
+    broadcast_coin_update(room_code)
 
 @socketio.on("leave_room")
 def handle_leave_room(data):
@@ -989,12 +1350,7 @@ def handle_leave_room(data):
                     print(f"Removed {username} from active game in {room_code} via leave_room")
                     
                     if len(current_game.players) == 1:
-                        emit("game_over", {
-                            "winner": current_game.players[0],
-                            "discard_top": current_game.top_card()
-                        }, room=room_code)
-                        room_data['game'] = None
-                        room_data['started'] = False
+                        handle_game_over(room_code, current_game.players[0], current_game)
                     
                     # Broadcast updates
                     socketio.emit("update_players", {"players": current_game.players, "game_started": room_data['started']}, room=room_code)

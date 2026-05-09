@@ -9,6 +9,7 @@ class Unogame:
         self.stacked_cards = 0
         self.playing_color = None
         self.roulette = False
+        self.roulette_attacker = None
         self.players = list(player_names)
         random.shuffle(self.players)
         self.hands = {player: [] for player in self.players}
@@ -20,21 +21,42 @@ class Unogame:
         self.draw_started = False
         self.awaiting_player_choice = False
 
+        # Coin state: set from outside after construction using set_coins()
+        self.player_coins = {player: None for player in self.players}  # 'Mercy' or 'No Mercy'
+        self.coins_available = {player: True for player in self.players}  # used once per game
+        self.no_mercy_active = False  # set to True this turn before playing a draw card
+        
+        self.awaiting_final_attack_color = False
+        self.awaiting_sudden_death_color = False
+        self.awaiting_wild_discard_all_color = False
+        self.final_attack_pending = {}  # {player_name: count}
+        self.final_attack_attacker = None
+        # 10s Play Again flag (now just 10) - set by handle_special_effects to skip next_player()
+        self.play_again_active = False
+
+
+    def set_coins(self, coins_dict):
+        """Call after construction to set player coins from lobby choices."""
+        for player, coin in coins_dict.items():
+            if player in self.player_coins:
+                self.player_coins[player] = coin
+
     def _init_discard_pile(self):
         if self.deck:
             card = self.deck.pop()
-            # Game must start with a number card (0-9). 
+            # Game must start with a number card (0-10).
             # If color is Wild or type is not a digit, reshuffle.
+            # 10 is considered a number card, so it is allowed to start.
             while card['color'] == 'Wild' or not card['type'].isdigit():
                 self.deck.append(card)
                 random.shuffle(self.deck)
                 card = self.deck.pop()
             self.playing_color = card['color']
-            self.discard_pile.append(card)        
+            self.discard_pile.append(card)
 
     def distribute_cards(self):
         for player in self.players:
-            self.hands[player] = [self.deck.pop() for _ in range(7)]   
+            self.hands[player] = [self.deck.pop() for _ in range(7)]
 
     def call_uno(self, player):
         self.uno_flags[player] = True
@@ -44,23 +66,23 @@ class Unogame:
 
     # Add method to check UNO status
     def has_called_uno(self, player):
-        return self.uno_flags[player]    
-    
+        return self.uno_flags[player]
+
     def get_player_hand(self, player):
         return self.hands.get(player, [])
-    
+
     def cards_remaining(self):
         return len(self.deck)
-    
+
     def current_players_turn(self):
         return self.players[0]
-    
+
     def top_card(self):
         return self.discard_pile[-1]
-    
+
     def draw_card(self, player):
         card = self.deck.pop()
-        self.hands[player].append(card)            
+        self.hands[player].append(card)
         return card
 
     def next_player(self):
@@ -68,12 +90,29 @@ class Unogame:
 
     def reverse_player(self):
         if len(self.players) >= 3:
-            self.players = [self.players[0]] + self.players[:0:-1] 
+            self.players = [self.players[0]] + self.players[:0:-1]
         else:
             self.players.reverse()
 
     def skip_all(self):
         self.players.insert(0, self.players.pop(-1))
+
+    def draw_until_24(self, player):
+        """Draw cards for a player until they have 24 cards in hand. Returns number drawn."""
+        drawn = 0
+        while len(self.hands[player]) < 24:
+            if not self.deck:
+                break
+            self.draw_card(player)
+            drawn += 1
+        return drawn
+
+    def ensure_deck(self):
+        """Reshuffle discard pile into deck if deck is running low."""
+        if len(self.deck) <= 1:
+            self.deck = self.deck + self.discard_pile[:-1]
+            random.shuffle(self.deck)
+            self.discard_pile = [self.discard_pile[-1]]
 
     def find_valid_cards(self, player):
         valid_indices = []
@@ -84,32 +123,52 @@ class Unogame:
                 valid_indices.append(i)
 
         return valid_indices
-    
+
+    def _draw_value(self, card_type):
+        """Return the draw value of a card type for stacking ordering purposes."""
+        mapping = {
+            'Draw Two': 2,
+            'Draw Four': 4,
+            'Reverse Draw Four': 4,
+            'Draw Six': 6,
+            'Draw Ten': 10,
+            'Wild Reverse Draw Eight': 8,
+        }
+        return mapping.get(card_type, 0)
+
     def find_staking_cards(self, player):
         player_deck = self.hands[player]
         top_card = self.discard_pile[-1]
         playing_color = self.playing_color
         valid_staking_cards = []
-        
+        top_draw_value = self._draw_value(top_card["type"])
+
         if top_card["type"] == "Draw Two":
             for i, player_card in enumerate(player_deck):
-                if player_card["type"] == "Draw Two" or player_card["type"] == "Reverse Draw Four" or player_card["type"] == "Draw Six" or player_card["type"] == "Draw Ten":
+                if player_card["type"] == "Draw Two" or player_card["type"] == "Reverse Draw Four" or player_card["type"] == "Draw Six" or player_card["type"] == "Draw Ten" or player_card["type"] == "Wild Reverse Draw Eight":
                     valid_staking_cards.append(i)
                 elif player_card["color"] == playing_color and player_card["type"] == "Draw Four":
                     valid_staking_cards.append(i)
 
         elif top_card["type"] == "Draw Four":
             for i, player_card in enumerate(player_deck):
-                if player_card["type"] == "Draw Four" or player_card["type"] == "Reverse Draw Four" or player_card["type"] == "Draw Six" or player_card["type"] == "Draw Ten":
+                if player_card["type"] == "Draw Four" or player_card["type"] == "Reverse Draw Four" or player_card["type"] == "Draw Six" or player_card["type"] == "Draw Ten" or player_card["type"] == "Wild Reverse Draw Eight":
                     valid_staking_cards.append(i)
 
         elif top_card["type"] == "Reverse Draw Four":
             for i, player_card in enumerate(player_deck):
-                if player_card["type"] == "Reverse Draw Four" or player_card["type"] == "Draw Six" or player_card["type"] == "Draw Ten":
+                if player_card["type"] == "Reverse Draw Four" or player_card["type"] == "Draw Six" or player_card["type"] == "Draw Ten" or player_card["type"] == "Wild Reverse Draw Eight":
                     valid_staking_cards.append(i)
                 elif player_card["color"] == playing_color and player_card["type"] == "Draw Four":
                     valid_staking_cards.append(i)
-        
+
+        elif top_card["type"] == "Wild Reverse Draw Eight":
+            # Only same-or-higher draw value can stack: RD8 (8), Draw Ten (10)
+            for i, player_card in enumerate(player_deck):
+                card_val = self._draw_value(player_card["type"])
+                if card_val >= 8:
+                    valid_staking_cards.append(i)
+
         elif top_card["type"] == "Draw Six":
             for i, player_card in enumerate(player_deck):
                 if player_card["type"] == "Draw Six" or player_card["type"] == "Draw Ten":
@@ -121,7 +180,7 @@ class Unogame:
                     valid_staking_cards.append(i)
 
         return valid_staking_cards
-    
+
     def find_valid_color_index(self, player, color):
         player_deck = self.hands[player]
         valid_color_indexes = []
@@ -130,24 +189,90 @@ class Unogame:
                 valid_color_indexes.append(i)
         return valid_color_indexes
 
+    def has_playable_draw_card(self, player):
+        """Check if player has any draw card that would be valid to play (for No Mercy coin gating)."""
+        draw_types = {'Draw Two', 'Draw Four', 'Draw Six', 'Draw Ten', 'Reverse Draw Four', 'Wild Reverse Draw Eight'}
+        top_card = self.discard_pile[-1]
+        for card in self.hands[player]:
+            if card['type'] not in draw_types:
+                continue
+            # If draw is pending, check stacking rules
+            if self.draw_pending:
+                stacking = self.find_staking_cards(player)
+                idx = self.hands[player].index(card)
+                if idx in stacking:
+                    return True
+            else:
+                # Normal play: must match color or type or be Wild
+                if card['color'] == 'Wild' or card['color'] == self.playing_color or card['type'] == top_card['type']:
+                    return True
+        return False
+
+    def apply_mercy_coin(self, player):
+        """Discard entire hand to discard pile, shuffle discard, draw 7 fresh cards."""
+        # Move all hand cards to draw deck
+        hand_cards = self.hands[player][:]
+        self.hands[player] = []
+        self.deck.extend(hand_cards)
+
+        # Shuffle the draw deck
+        random.shuffle(self.deck)
+
+        # Ensure enough cards in deck
+        self.ensure_deck()
+
+        # Draw 7 fresh cards
+        for _ in range(7):
+            if self.deck:
+                self.draw_card(player)
+
+        # Reset stacked cards and draw state (mercy cancels any pending draw)
+        self.stacked_cards = 0
+        self.draw_pending = False
+        self.draw_started = False
+        
+        # Reset roulette state
+        self.roulette = False
+        self.awaiting_color_choice = False
+
+        # Mark coin as used
+        self.coins_available[player] = False
+
+    def count_action_and_wild_cards(self, player):
+        """Count action + wild cards in a player's hand for Final Attack."""
+        # Action cards = colored cards that are not number cards (0-10)
+        count = 0
+        for card in self.hands[player]:
+            if card['color'] == 'Wild':
+                count += 1
+            elif card['color'] != 'Wild' and not card['type'].isdigit():
+                # Action cards: Skip, Skip All, Reverse, Discard All of Color, Draw Two, etc.
+                count += 1
+        return count
+
     def remove_player(self, player_name):
         if player_name in self.players:
             is_current = (self.current_players_turn() == player_name)
-            
+
             # If any player leaves, clean up any pending selection states.
-            # This ensures that if the player who was supposed to choose leaves, 
-            # or if the target of a roulette leaves, the game state is reset.
             if self.awaiting_player_choice or self.awaiting_color_choice or self.roulette:
                 self.awaiting_player_choice = False
                 self.awaiting_color_choice = False
                 self.roulette = False
-            
+
+            if self.awaiting_final_attack_color:
+                self.awaiting_final_attack_color = False
+
+            if self.awaiting_sudden_death_color:
+                self.awaiting_sudden_death_color = False
+
             if is_current:
                 if self.draw_pending:
                     self.stacked_cards = 0
                     self.draw_pending = False
                     self.draw_started = False
-            
+                self.no_mercy_active = False
+
             # Add player's cards back to deck and shuffle
             player_hand = self.hands.pop(player_name, [])
             self.deck.extend(player_hand)
@@ -155,31 +280,37 @@ class Unogame:
 
             self.players.remove(player_name)
             self.uno_flags.pop(player_name, None)
-            
+            self.player_coins.pop(player_name, None)
+            self.coins_available.pop(player_name, None)
+
             return True
         return False
 
     def get_valid_indices(self, player):
         if self.current_players_turn() != player:
             return []
-        
+
         if self.draw_pending:
             if not self.draw_started:
                 return self.find_staking_cards(player)
             else:
-                return [] # Must finish drawing
-                
+                return []  # Must finish drawing
+
         return self.find_valid_cards(player)
 
     def to_dict(self):
         return {
             "players": self.players,
             "current_player": self.current_players_turn(),
-            "deck": self.deck,  # Assuming deck is a list of serializable cards
+            "deck": self.deck,
             "discard_pile": self.discard_pile,
             "hands": {player: hand for player, hand in self.hands.items()},
             "playing_color": self.playing_color,
             "roulette": self.roulette,
-            "stacked_cards":self.stacked_cards,
-            "uno_flags": self.uno_flags
+            "roulette_attacker": self.roulette_attacker,
+            "stacked_cards": self.stacked_cards,
+            "uno_flags": self.uno_flags,
+            "coins_available": self.coins_available,
+            "awaiting_final_attack_color": self.awaiting_final_attack_color,
+            "awaiting_sudden_death_color": self.awaiting_sudden_death_color
         }
