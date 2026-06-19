@@ -61,6 +61,31 @@ export default function RulesModal({ onClose }) {
        title: "The '0' Rule (Pass Hands)",
        description: "When anyone plays a 0 card, every single player passes their entire hand to the next player in the current direction of play.",
        images: ["/images/blue_0.png"]
+    },
+    {
+       title: "The '10' Rule (Play Again)",
+       description: "When you play a 10 card, you get to take another turn immediately! Play another card from your hand.",
+       images: ["/images/red_10.png", "/images/blue_10.png"]
+    },
+    {
+       title: "Wild Reverse Draw 8",
+       description: "Reverses the direction of play AND forces the new next player to draw 8 cards and lose their turn. You choose the next color.",
+       images: ["/images/wild_reverse_draw_eight.png"]
+    },
+    {
+       title: "Wild Discard All",
+       description: "First, you discard all cards of a chosen color from your hand. Then, you get to choose the final color to continue play!",
+       images: ["/images/wild_discard_all_of_color.png"]
+    },
+    {
+       title: "Wild Final Attack",
+       description: "A devastating blow! The next player draws cards equal to the number of Action and Wild cards in your hand. If you have 7 or more, they draw 24 cards and everyone else draws 5!",
+       images: ["/images/wild_final_attack.png"]
+    },
+    {
+       title: "Wild Sudden Death",
+       description: "Absolute chaos! Every single player must continuously draw cards until they have exactly 24 cards in their hand. One more card and you're eliminated by the Mercy Rule!",
+       images: ["/images/wild_sudden_death.png"]
     }
   ];
 
