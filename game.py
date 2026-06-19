@@ -171,7 +171,7 @@ class Unogame:
 
         elif top_card["type"] == "Draw Six":
             for i, player_card in enumerate(player_deck):
-                if player_card["type"] == "Draw Six" or player_card["type"] == "Draw Ten":
+                if player_card["type"] == "Draw Six" or player_card["type"] == "Wild Reverse Draw Eight" or player_card["type"] == "Draw Ten":
                     valid_staking_cards.append(i)
 
         elif top_card["type"] == "Draw Ten":
