@@ -531,7 +531,7 @@ def debug():
         debug_rooms[room_code] = room_info
 
     disconnect_timers_info = {}
-    for token, (thread, event) in disconnect_timers.items():
+    for token, (thread, event) in list(disconnect_timers.items()):
         disconnect_timers_info[token] = {
             "thread_alive": thread.is_alive(),
             "event_set": event.is_set()
