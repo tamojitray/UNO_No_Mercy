@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 import { useToast } from '../context/ToastContext';
+import { API_BASE } from '../config';
 
 const BugReport = () => {
     const [bug, setBug] = useState('');
@@ -8,10 +9,6 @@ const BugReport = () => {
     const [sending, setSending] = useState(false);
     const [showNotification, setShowNotification] = useState(false);
     const { showToast } = useToast();
-
-    const API_BASE = import.meta.env.PROD 
-      ? window.location.origin 
-      : window.location.protocol + "//" + window.location.hostname + ":8000";
 
     useEffect(() => {
         // Show notification on mount
