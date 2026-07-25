@@ -1,5 +1,6 @@
-from flask import Flask, render_template, request, jsonify, make_response
+from flask import Flask, render_template, request, jsonify, make_response, send_from_directory
 from flask_socketio import SocketIO, join_room, leave_room, emit
+import os
 import random
 import string
 import secrets
@@ -9,7 +10,7 @@ from flask_cors import CORS
 
 from game import Unogame
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='frontend/dist', static_url_path='')
 CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*")
 
@@ -408,6 +409,9 @@ def handle_special_effects(game, card, player, color, room_code):
 
 @app.route('/')
 def index():
+    dist_index = os.path.join(app.root_path, 'frontend', 'dist', 'index.html')
+    if os.path.exists(dist_index):
+        return send_from_directory(os.path.join(app.root_path, 'frontend', 'dist'), 'index.html')
     return render_template('main.html')
 
 @app.route('/create_room', methods=['POST'], strict_slashes=False)
@@ -455,10 +459,22 @@ def join_room_route():
 
 @app.route('/room/<room_code>')
 def room(room_code):
+    dist_index = os.path.join(app.root_path, 'frontend', 'dist', 'index.html')
+    if os.path.exists(dist_index):
+        return send_from_directory(os.path.join(app.root_path, 'frontend', 'dist'), 'index.html')
     if room_code in rooms:
         return render_template('room.html', room_code=room_code)
     else:
         return "Room not found", 404
+
+@app.route('/<room_code>')
+def catch_room_code(room_code):
+    dist_index = os.path.join(app.root_path, 'frontend', 'dist', 'index.html')
+    if os.path.exists(dist_index):
+        return send_from_directory(os.path.join(app.root_path, 'frontend', 'dist'), 'index.html')
+    if len(room_code) == 6 and room_code.isalnum():
+        return render_template('main.html')
+    return jsonify({'status': 'not_found'}), 404
     
 @app.route('/get_username', methods=['POST'], strict_slashes=False)
 def get_username():

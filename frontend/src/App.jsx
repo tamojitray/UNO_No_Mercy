@@ -20,6 +20,7 @@ function App() {
   const [roomCode, setRoomCode] = useState('');
   const [username, setUsername] = useState('');
   const [sessionToken, setSessionToken] = useState('');
+  const [invitedRoomCode, setInvitedRoomCode] = useState('');
   const [showRules, setShowRules] = useState(false);
   const [isTester, setIsTester] = useState(window.location.pathname === '/tester' || window.location.search.includes('tester=true'));
 
@@ -34,6 +35,14 @@ function App() {
   }, []);
 
   useEffect(() => {
+    // Check if user visited via a room link like /ABCDEF or /room/ABCDEF
+    const rawPath = window.location.pathname.replace(/^\/(room\/)?/, '').trim().toUpperCase();
+    const isRoomCode = /^[A-Z0-9]{6}$/.test(rawPath) && rawPath !== 'TESTER';
+
+    if (isRoomCode) {
+      setInvitedRoomCode(rawPath);
+    }
+
     const token = localStorage.getItem('session_token');
     const room = localStorage.getItem('room_code');
     const user = localStorage.getItem('username');
@@ -47,11 +56,33 @@ function App() {
             setUsername(user);
             setView('room');
           } else {
-            localStorage.clear();
+            localStorage.removeItem('session_token');
+            localStorage.removeItem('room_code');
           }
-        }).catch(err => console.error(err));
+        }).catch(err => {
+          console.error(err);
+          localStorage.removeItem('session_token');
+          localStorage.removeItem('room_code');
+        });
     }
   }, []);
+
+  // Synchronize browser address bar with current view & room code
+  useEffect(() => {
+    if (isTester) return;
+
+    if (view === 'room' || view === 'game') {
+      if (roomCode && window.location.pathname !== `/${roomCode}`) {
+        window.history.pushState({}, '', `/${roomCode}`);
+      }
+    } else if (view === 'home') {
+      if (invitedRoomCode && window.location.pathname !== `/${invitedRoomCode}`) {
+        window.history.pushState({}, '', `/${invitedRoomCode}`);
+      } else if (!invitedRoomCode && window.location.pathname !== '/' && window.location.pathname !== '/tester') {
+        window.history.pushState({}, '', '/');
+      }
+    }
+  }, [view, roomCode, invitedRoomCode, isTester]);
 
   // When game_started event occurs, we switch from 'room' to 'game'.
   // Also we want to ensure socket connects properly.
@@ -88,8 +119,10 @@ function App() {
 
     socket.on('room_deleted', (data) => {
         showToast(data.message, 'error');
-        localStorage.clear();
+        localStorage.removeItem('session_token');
+        localStorage.removeItem('room_code');
         setView('home');
+        setInvitedRoomCode('');
     });
 
     return () => {
@@ -111,6 +144,8 @@ function App() {
           setRoomCode={setRoomCode} 
           setUsername={setUsername}
           setSessionToken={setSessionToken}
+          invitedRoomCode={invitedRoomCode}
+          setInvitedRoomCode={setInvitedRoomCode}
         />
       )}
       

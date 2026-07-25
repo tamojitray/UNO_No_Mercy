@@ -9,6 +9,7 @@ export default function Room({ roomCode, username, sessionToken, setView }) {
   const [players, setPlayers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [copiedLink, setCopiedLink] = useState(false);
   const [selectedCoin, setSelectedCoin] = useState(null); // 'Mercy' | 'No Mercy' | null
   const [coins, setCoins] = useState({}); // { playerName: 'Mercy' | 'No Mercy' }
   const { showToast } = useToast();
@@ -87,13 +88,23 @@ export default function Room({ roomCode, username, sessionToken, setView }) {
   const copyRoomCode = () => {
     navigator.clipboard.writeText(roomCode);
     setCopied(true);
+    showToast("Room code copied!", "success");
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  const copyRoomLink = () => {
+    const link = `${window.location.origin}/${roomCode}`;
+    navigator.clipboard.writeText(link);
+    setCopiedLink(true);
+    showToast("Room link copied to clipboard!", "success");
+    setTimeout(() => setCopiedLink(false), 2000);
   };
 
   const leaveRoom = () => {
     if (window.confirm("Leave the room?")) {
       socket.emit("leave_room", { room: roomCode, username, session: sessionToken });
-      localStorage.clear();
+      localStorage.removeItem('session_token');
+      localStorage.removeItem('room_code');
       setView('home');
     }
   };
@@ -115,20 +126,38 @@ export default function Room({ roomCode, username, sessionToken, setView }) {
             ← Leave Room
           </button>
         </div>
-        <div
-          onClick={copyRoomCode}
-          className="bg-slate-900 px-3 md:px-4 py-1.5 md:py-2 rounded-lg border border-slate-700 cursor-pointer hover:border-primary/50 hover:bg-slate-800 transition-all relative group flex flex-col items-center justify-center min-w-[100px]"
-          title="Click to copy room code"
-        >
-          <span className="text-slate-400 text-[10px] md:text-sm uppercase tracking-wider block text-center select-none">
-            {copied ? <span className="text-green-400 font-bold animate-pulse">Copied!</span> : 'Room Code'}
-          </span>
-          <span className="text-primary font-mono text-xl md:text-2xl font-black flex items-center gap-2">
-            {roomCode}
-            <svg xmlns="http://www.w3.org/2000/svg" className={`h-4 w-4 transition-colors ${copied ? 'text-green-400' : 'text-slate-500 group-hover:text-primary'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
-            </svg>
-          </span>
+        <div className="flex gap-2">
+          <div
+            onClick={copyRoomCode}
+            className="bg-slate-900 px-3 md:px-4 py-1.5 md:py-2 rounded-lg border border-slate-700 cursor-pointer hover:border-primary/50 hover:bg-slate-800 transition-all relative group flex flex-col items-center justify-center min-w-[90px]"
+            title="Click to copy room code"
+          >
+            <span className="text-slate-400 text-[10px] md:text-xs uppercase tracking-wider block text-center select-none">
+              {copied ? <span className="text-green-400 font-bold animate-pulse">Copied!</span> : 'Code'}
+            </span>
+            <span className="text-primary font-mono text-lg md:text-xl font-black flex items-center gap-1">
+              {roomCode}
+              <svg xmlns="http://www.w3.org/2000/svg" className={`h-3.5 w-3.5 transition-colors ${copied ? 'text-green-400' : 'text-slate-500 group-hover:text-primary'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
+              </svg>
+            </span>
+          </div>
+
+          <button
+            onClick={copyRoomLink}
+            className="bg-slate-900 px-3 md:px-4 py-1.5 md:py-2 rounded-lg border border-slate-700 cursor-pointer hover:border-emerald-500/50 hover:bg-slate-800 transition-all relative group flex flex-col items-center justify-center min-w-[90px]"
+            title="Click to copy room share link"
+          >
+            <span className="text-slate-400 text-[10px] md:text-xs uppercase tracking-wider block text-center select-none">
+              {copiedLink ? <span className="text-green-400 font-bold animate-pulse">Copied!</span> : 'Share Link'}
+            </span>
+            <span className="text-emerald-400 font-mono text-xs md:text-sm font-bold flex items-center gap-1 mt-0.5">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+              </svg>
+              Copy Link
+            </span>
+          </button>
         </div>
       </div>
 
