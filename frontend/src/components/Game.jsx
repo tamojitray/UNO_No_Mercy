@@ -45,7 +45,6 @@ export default function Game({ roomCode, username, sessionToken, setView, initia
   const [rouletteAttacker, setRouletteAttacker] = useState(null);
   const handRevealTimeoutRef = useRef(null);
 
-
   useEffect(() => {
     if (initialHandData) {
       setHand(initialHandData.hand);
@@ -506,7 +505,17 @@ export default function Game({ roomCode, username, sessionToken, setView, initia
       )}
 
       {/* Center - Play Area */}
-      <div className="flex-1 flex flex-row items-center justify-center gap-2 sm:gap-8 z-10 px-2 min-h-0">
+      <div 
+        className={`flex flex-row items-center justify-center gap-2 sm:gap-8 z-10 px-4 sm:px-8 py-4 sm:py-6 my-auto min-h-0 rounded-3xl transition-all duration-500 ${
+          isMyTurn && !gameOver ? 'animate-my-turn-edge-pulse border-2' : 'border border-transparent'
+        }`}
+        style={
+          isMyTurn && !gameOver ? {
+            borderColor: getHexForColor(stats.playing_color),
+            boxShadow: `0 0 45px 12px ${getHexForColor(stats.playing_color)}88, inset 0 0 35px 10px ${getHexForColor(stats.playing_color)}44`
+          } : {}
+        }
+      >
          
          <div className="flex flex-col items-center space-y-1 relative">
             <span className="text-[10px] md:text-xs uppercase tracking-widest text-slate-400 font-bold">Deck ({stats.draw_deck_size})</span>
@@ -764,12 +773,14 @@ export default function Game({ roomCode, username, sessionToken, setView, initia
 }
 
 function getHexForColor(c) {
+    if (!c) return '#3b82f6';
+    const normalized = c.charAt(0).toUpperCase() + c.slice(1).toLowerCase();
     const m = {
         'Red': '#ef4444',
         'Blue': '#3b82f6',
         'Green': '#22c55e',
         'Yellow': '#eab308',
-        'Wild': '#888'
+        'Wild': '#a855f7'
     };
-    return m[c] || '#888';
+    return m[normalized] || '#3b82f6';
 }

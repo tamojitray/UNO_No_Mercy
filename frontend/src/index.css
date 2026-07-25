@@ -64,3 +64,30 @@
 .preserve-3d {
   transform-style: preserve-3d;
 }
+
+@keyframes continuousEdgePulse {
+  0%, 100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+@keyframes myTurnEdgePulse {
+  0%, 100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+.animate-continuous-edge-pulse {
+  animation: continuousEdgePulse 1.6s ease-in-out infinite;
+}
+
+.animate-my-turn-edge-pulse {
+  animation: myTurnEdgePulse 1.2s ease-in-out infinite;
+}
+
