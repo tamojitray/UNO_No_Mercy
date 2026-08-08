@@ -18,13 +18,13 @@ export default function RulesModal({ onClose }) {
        images: ["/images/back.png"]
     },
     {
-       title: "The Mercy Rule",
-       description: "Show No Mercy! If at any point a player acquires 25 or more cards in their hand from drawing penalties, they are instantly eliminated from the game.",
-       images: []
+       title: "The Mercy Rule & Coins",
+       description: "Show No Mercy! If at any point a player acquires 25 or more cards in their hand from drawing penalties, they are instantly eliminated. Choose a Mercy Coin (refresh entire hand with 7 fresh cards) or No Mercy Coin (double your draw card attack) before the game starts!",
+       images: ["/images/coin_happy.png", "/images/coin_sad.png"]
     },
     {
-      title: "Draw Cards",
-      description: "Forces the next player to draw cards and lose their turn. These cards CAN be stacked! For example, playing a +4 on a +2 makes the next player draw 6.",
+      title: "Draw Cards & No Mercy Doubled Stacking",
+      description: "Forces the next player to draw cards and lose their turn. Draw cards CAN be stacked! If a player activates their No Mercy Coin, the draw penalty DOUBLES (+2 becomes +4, +4 becomes +8, +6 becomes +12, +8 becomes +16, +10 becomes +20). To stack on a doubled attack, the next player must play a draw card of equal or greater value to the doubled amount (e.g. +8 or higher for doubled +4). Doubled +6 or above cannot be stacked since max card in deck is +10!",
       images: ["/images/red_draw_two.png", "/images/blue_draw_four.png"]
     },
     {

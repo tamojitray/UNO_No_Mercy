@@ -25,6 +25,8 @@ class Unogame:
         self.player_coins = {player: None for player in self.players}  # 'Mercy' or 'No Mercy'
         self.coins_available = {player: True for player in self.players}  # used once per game
         self.no_mercy_active = False  # set to True this turn before playing a draw card
+        self.no_mercy_doubled = False  # True when current stacked draw is doubled by No Mercy coin
+        self.min_stack_draw_value = 0  # Required draw value to stack (doubled or normal)
         
         self.awaiting_final_attack_color = False
         self.awaiting_sudden_death_color = False
@@ -141,42 +143,28 @@ class Unogame:
         top_card = self.discard_pile[-1]
         playing_color = self.playing_color
         valid_staking_cards = []
-        top_draw_value = self._draw_value(top_card["type"])
 
-        if top_card["type"] == "Draw Two":
-            for i, player_card in enumerate(player_deck):
-                if player_card["type"] == "Draw Two" or player_card["type"] == "Reverse Draw Four" or player_card["type"] == "Draw Six" or player_card["type"] == "Draw Ten" or player_card["type"] == "Wild Reverse Draw Eight":
-                    valid_staking_cards.append(i)
-                elif player_card["color"] == playing_color and player_card["type"] == "Draw Four":
-                    valid_staking_cards.append(i)
+        # If No Mercy doubled is active, next player must play a draw card with value >= doubled draw value
+        # (e.g. +4 requires >= 4, +8 requires >= 8, +12 requires >= 12 which is impossible since max card is +10).
+        # Otherwise, the minimum draw value is the draw value of the top card.
+        req_val = self.min_stack_draw_value if getattr(self, 'no_mercy_doubled', False) else self._draw_value(top_card["type"])
 
-        elif top_card["type"] == "Draw Four":
-            for i, player_card in enumerate(player_deck):
-                if player_card["type"] == "Draw Four" or player_card["type"] == "Reverse Draw Four" or player_card["type"] == "Draw Six" or player_card["type"] == "Draw Ten" or player_card["type"] == "Wild Reverse Draw Eight":
-                    valid_staking_cards.append(i)
+        for i, player_card in enumerate(player_deck):
+            card_val = self._draw_value(player_card["type"])
+            if card_val == 0 or card_val < req_val:
+                continue
 
-        elif top_card["type"] == "Reverse Draw Four":
-            for i, player_card in enumerate(player_deck):
-                if player_card["type"] == "Reverse Draw Four" or player_card["type"] == "Draw Six" or player_card["type"] == "Draw Ten" or player_card["type"] == "Wild Reverse Draw Eight":
+            # Card has equal or higher draw value than required threshold
+            if player_card["color"] == "Wild":
+                valid_staking_cards.append(i)
+            elif player_card["type"] == "Draw Four":
+                if top_card["type"] == "Draw Four" or player_card["color"] == playing_color:
                     valid_staking_cards.append(i)
-                elif player_card["color"] == playing_color and player_card["type"] == "Draw Four":
+            elif player_card["type"] == "Draw Two":
+                if top_card["type"] == "Draw Two" or player_card["color"] == playing_color:
                     valid_staking_cards.append(i)
-
-        elif top_card["type"] == "Wild Reverse Draw Eight":
-            # Only same-or-higher draw value can stack: RD8 (8), Draw Ten (10)
-            for i, player_card in enumerate(player_deck):
-                card_val = self._draw_value(player_card["type"])
-                if card_val >= 8:
-                    valid_staking_cards.append(i)
-
-        elif top_card["type"] == "Draw Six":
-            for i, player_card in enumerate(player_deck):
-                if player_card["type"] == "Draw Six" or player_card["type"] == "Wild Reverse Draw Eight" or player_card["type"] == "Draw Ten":
-                    valid_staking_cards.append(i)
-
-        elif top_card["type"] == "Draw Ten":
-            for i, player_card in enumerate(player_deck):
-                if player_card["type"] == "Draw Ten":
+            else:
+                if player_card["color"] == playing_color or player_card["type"] == top_card["type"]:
                     valid_staking_cards.append(i)
 
         return valid_staking_cards
@@ -230,6 +218,8 @@ class Unogame:
         self.stacked_cards = 0
         self.draw_pending = False
         self.draw_started = False
+        self.no_mercy_doubled = False
+        self.min_stack_draw_value = 0
         
         # Reset roulette state
         self.roulette = False
@@ -271,6 +261,8 @@ class Unogame:
                     self.stacked_cards = 0
                     self.draw_pending = False
                     self.draw_started = False
+                    self.no_mercy_doubled = False
+                    self.min_stack_draw_value = 0
                 self.no_mercy_active = False
 
             # Add player's cards back to deck and shuffle
@@ -312,5 +304,7 @@ class Unogame:
             "uno_flags": self.uno_flags,
             "coins_available": self.coins_available,
             "awaiting_final_attack_color": self.awaiting_final_attack_color,
-            "awaiting_sudden_death_color": self.awaiting_sudden_death_color
+            "awaiting_sudden_death_color": self.awaiting_sudden_death_color,
+            "no_mercy_doubled": getattr(self, 'no_mercy_doubled', False),
+            "min_stack_draw_value": getattr(self, 'min_stack_draw_value', 0)
         }

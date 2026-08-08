@@ -134,6 +134,12 @@ const Tester = () => {
                                     Draw Pending: {game.draw_pending ? 'ON' : 'OFF'}
                                 </button>
                                 <button 
+                                    onClick={() => executeCommand('set_param', { key: 'no_mercy_doubled', value: !game.no_mercy_doubled })}
+                                    className={`px-3 py-1.5 rounded-lg text-xs font-bold transition border ${game.no_mercy_doubled ? 'bg-red-600/30 border-red-500 text-red-400' : 'bg-slate-800 border-white/10 text-slate-400'}`}
+                                >
+                                    No Mercy Doubled: {game.no_mercy_doubled ? 'ON 😈' : 'OFF'}
+                                </button>
+                                <button 
                                     onClick={() => executeCommand('set_param', { key: 'roulette', value: !game.roulette })}
                                     className={`px-3 py-1.5 rounded-lg text-xs font-bold transition border ${game.roulette ? 'bg-purple-500/30 border-purple-500 text-purple-400' : 'bg-slate-800 border-white/10 text-slate-400'}`}
                                 >
@@ -145,6 +151,16 @@ const Tester = () => {
                                 >
                                     Final Attack Color: {game.awaiting_final_attack_color ? 'ON' : 'OFF'}
                                 </button>
+                            </div>
+
+                            <div className="space-y-1">
+                                <label className="text-xs text-slate-400 uppercase font-bold tracking-wider">Min Stack Value Req</label>
+                                <input 
+                                    type="number" 
+                                    value={game.min_stack_draw_value || 0} 
+                                    onChange={(e) => executeCommand('set_param', { key: 'min_stack_draw_value', value: parseInt(e.target.value) || 0 })}
+                                    className="w-full bg-slate-900 border border-white/10 rounded-lg px-3 py-2 text-sm"
+                                />
                             </div>
 
                             <div className="space-y-2">

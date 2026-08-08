@@ -60,7 +60,9 @@ def broadcast_game_state(room_code, player_who_acted=None):
         "final_attack_attacker": getattr(game, 'final_attack_attacker', None),
         "awaiting_final_attack_color": getattr(game, 'awaiting_final_attack_color', False),
         "roulette": getattr(game, 'roulette', False),
-        "roulette_attacker": getattr(game, 'roulette_attacker', None)
+        "roulette_attacker": getattr(game, 'roulette_attacker', None),
+        "no_mercy_doubled": getattr(game, 'no_mercy_doubled', False),
+        "min_stack_draw_value": getattr(game, 'min_stack_draw_value', 0)
     }, room=room_code)    
     # Update current player's hand (for valid indices)
     emit_player_hand(game.current_players_turn(), room_code)
@@ -200,6 +202,8 @@ def handle_game_over(room_code, winner, game):
         game.stacked_cards = 0
         game.draw_pending = False
         game.draw_started = False
+        game.no_mercy_doubled = False
+        game.min_stack_draw_value = 0
         socketio.emit("game_over", {"winner": winner, "discard_top": game.top_card()}, room=room_code)
     else:
         socketio.emit("game_over", {"winner": winner}, room=room_code)
@@ -235,41 +239,56 @@ def handle_special_effects(game, card, player, color, room_code):
         if game.no_mercy_active:
             game.stacked_cards += 2 * 2
             game.no_mercy_active = False
+            game.no_mercy_doubled = True
+            game.min_stack_draw_value = 4
             game.coins_available[player] = False
-            socketio.emit("coin_activated", {"player": player, "coin": "No Mercy", "victim": game.players[1], "used": True}, room=room_code)
+            socketio.emit("coin_activated", {"player": player, "coin": "No Mercy", "victim": game.players[1], "used": True, "doubled_draw_val": 4}, room=room_code)
         else:
             game.stacked_cards += 2
+            game.no_mercy_doubled = False
+            game.min_stack_draw_value = 2
         game.draw_pending = True
 
     elif card['type'] == 'Draw Four':
         if game.no_mercy_active:
             game.stacked_cards += 4 * 2
             game.no_mercy_active = False
+            game.no_mercy_doubled = True
+            game.min_stack_draw_value = 8
             game.coins_available[player] = False
-            socketio.emit("coin_activated", {"player": player, "coin": "No Mercy", "victim": game.players[1], "used": True}, room=room_code)
-
+            socketio.emit("coin_activated", {"player": player, "coin": "No Mercy", "victim": game.players[1], "used": True, "doubled_draw_val": 8}, room=room_code)
         else:
             game.stacked_cards += 4
+            game.no_mercy_doubled = False
+            game.min_stack_draw_value = 4
         game.draw_pending = True
 
     elif card['type'] == 'Draw Six':
         if game.no_mercy_active:
             game.stacked_cards += 6 * 2
             game.no_mercy_active = False
+            game.no_mercy_doubled = True
+            game.min_stack_draw_value = 12
             game.coins_available[player] = False
-            socketio.emit("coin_activated", {"player": player, "coin": "No Mercy", "victim": game.players[1], "used": True}, room=room_code)
+            socketio.emit("coin_activated", {"player": player, "coin": "No Mercy", "victim": game.players[1], "used": True, "doubled_draw_val": 12}, room=room_code)
         else:
             game.stacked_cards += 6
+            game.no_mercy_doubled = False
+            game.min_stack_draw_value = 6
         game.draw_pending = True
 
     elif card['type'] == 'Draw Ten':
         if game.no_mercy_active:
             game.stacked_cards += 10 * 2
             game.no_mercy_active = False
+            game.no_mercy_doubled = True
+            game.min_stack_draw_value = 20
             game.coins_available[player] = False
-            socketio.emit("coin_activated", {"player": player, "coin": "No Mercy", "victim": game.players[1], "used": True}, room=room_code)
+            socketio.emit("coin_activated", {"player": player, "coin": "No Mercy", "victim": game.players[1], "used": True, "doubled_draw_val": 20}, room=room_code)
         else:
             game.stacked_cards += 10
+            game.no_mercy_doubled = False
+            game.min_stack_draw_value = 10
         game.draw_pending = True
     elif card['type'] == 'Reverse Draw Four':
         game.draw_pending = True
@@ -278,11 +297,15 @@ def handle_special_effects(game, card, player, color, room_code):
         if game.no_mercy_active:
             game.stacked_cards += 4 * 2
             game.no_mercy_active = False
+            game.no_mercy_doubled = True
+            game.min_stack_draw_value = 8
             game.coins_available[player] = False
             # After reversal, game.players[1] is the correct victim in all player counts
-            socketio.emit("coin_activated", {"player": player, "coin": "No Mercy", "victim": game.players[1], "used": True}, room=room_code)
+            socketio.emit("coin_activated", {"player": player, "coin": "No Mercy", "victim": game.players[1], "used": True, "doubled_draw_val": 8}, room=room_code)
         else:
             game.stacked_cards += 4
+            game.no_mercy_doubled = False
+            game.min_stack_draw_value = 4
 
     elif card['type'] == 'Wild Reverse Draw Eight':
         game.draw_pending = True
@@ -291,11 +314,15 @@ def handle_special_effects(game, card, player, color, room_code):
         if game.no_mercy_active:
             game.stacked_cards += 8 * 2
             game.no_mercy_active = False
+            game.no_mercy_doubled = True
+            game.min_stack_draw_value = 16
             game.coins_available[player] = False
             # After reversal, game.players[1] is the correct victim in all player counts
-            socketio.emit("coin_activated", {"player": player, "coin": "No Mercy", "victim": game.players[1], "used": True}, room=room_code)
+            socketio.emit("coin_activated", {"player": player, "coin": "No Mercy", "victim": game.players[1], "used": True, "doubled_draw_val": 16}, room=room_code)
         else:
             game.stacked_cards += 8
+            game.no_mercy_doubled = False
+            game.min_stack_draw_value = 8
 
     elif card['type'] == 'Discard All of Color':
         valid_color_index = game.find_valid_color_index(player, color)
@@ -780,6 +807,8 @@ def handle_draw_card(data):
             if game.stacked_cards == 0:
                 game.draw_pending = False
                 game.draw_started = False
+                game.no_mercy_doubled = False
+                game.min_stack_draw_value = 0
                 game.next_player()
 
                 # Emit updates

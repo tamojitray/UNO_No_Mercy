@@ -22,7 +22,9 @@ export default function Game({ roomCode, username, sessionToken, setView, initia
     awaiting_wild_discard_all_color: initialGameUpdate?.awaiting_wild_discard_all_color || false,
     final_attack_pending: initialGameUpdate?.final_attack_pending || {},
     final_attack_attacker: initialGameUpdate?.final_attack_attacker || null,
-    awaiting_final_attack_color: initialGameUpdate?.awaiting_final_attack_color || false
+    awaiting_final_attack_color: initialGameUpdate?.awaiting_final_attack_color || false,
+    no_mercy_doubled: initialGameUpdate?.no_mercy_doubled || false,
+    min_stack_draw_value: initialGameUpdate?.min_stack_draw_value || 0
   });
 
   // Modals
@@ -66,7 +68,9 @@ export default function Game({ roomCode, username, sessionToken, setView, initia
         uno_flags: initialGameUpdate.uno_flags ?? prev.uno_flags,
         players: initialGameUpdate.players ?? prev.players,
         coins_available: initialGameUpdate.coins_available ?? prev.coins_available,
-        player_coins: initialGameUpdate.player_coins ?? prev.player_coins
+        player_coins: initialGameUpdate.player_coins ?? prev.player_coins,
+        no_mercy_doubled: initialGameUpdate.no_mercy_doubled ?? prev.no_mercy_doubled,
+        min_stack_draw_value: initialGameUpdate.min_stack_draw_value ?? prev.min_stack_draw_value
       }));
       if (initialGameUpdate.discard_top) setDiscardTop(initialGameUpdate.discard_top);
       if (initialGameUpdate.player_coins && initialGameUpdate.player_coins[username]) {
@@ -103,7 +107,9 @@ export default function Game({ roomCode, username, sessionToken, setView, initia
         final_attack_attacker: data.final_attack_attacker ?? stats.final_attack_attacker,
         awaiting_final_attack_color: data.awaiting_final_attack_color ?? stats.awaiting_final_attack_color,
         roulette: data.roulette ?? stats.roulette,
-        roulette_attacker: data.roulette_attacker ?? stats.roulette_attacker
+        roulette_attacker: data.roulette_attacker ?? stats.roulette_attacker,
+        no_mercy_doubled: data.no_mercy_doubled ?? stats.no_mercy_doubled,
+        min_stack_draw_value: data.min_stack_draw_value ?? stats.min_stack_draw_value
       });
       if (data.player_coins && data.player_coins[username]) {
         setMyCoin(data.player_coins[username]);
@@ -235,10 +241,19 @@ export default function Game({ roomCode, username, sessionToken, setView, initia
             showToast(`😊 ${data.player} used their Mercy coin! Their hand was refreshed.`, 'info');
         } else if (data.coin === 'No Mercy') {
             if (data.used) {
+                const doubledVal = data.doubled_draw_val || stats.stacked_cards;
                 if (data.victim === username) {
-                    showToast(`⚡ ${data.player} used No Mercy! Your penalty is doubled!`, 'error');
+                    if (doubledVal > 10) {
+                        showToast(`😈 ${data.player} used No Mercy! +${doubledVal} penalty! Cannot be stacked (exceeds +10) - You must draw!`, 'error');
+                    } else {
+                        showToast(`😈 ${data.player} used No Mercy! +${doubledVal} penalty! You must play +${doubledVal} or higher to stack!`, 'error');
+                    }
                 } else {
-                    showToast(`⚡ ${data.player} used their No Mercy coin.`, 'info');
+                    if (doubledVal > 10) {
+                        showToast(`😈 ${data.player} used No Mercy! Penalty doubled to +${doubledVal} (Unstackable)!`, 'warning');
+                    } else {
+                        showToast(`😈 ${data.player} used No Mercy! Penalty doubled to +${doubledVal} (requires +${doubledVal}+ to stack).`, 'info');
+                    }
                 }
             }
         } else {
@@ -545,7 +560,7 @@ export default function Game({ roomCode, username, sessionToken, setView, initia
                     }}
                     className="absolute -bottom-10 bg-gradient-to-r from-red-600 to-red-800 text-white font-black text-[10px] sm:text-xs px-3 py-1 rounded-lg shadow-xl shadow-red-900/50 border border-red-400 hover:scale-105 active:scale-95 transition animate-pulse whitespace-nowrap z-30"
                 >
-                    DRAW ALL (+{stats.stacked_cards})
+                    DRAW ALL (+{stats.stacked_cards}{stats.no_mercy_doubled ? ' DOUBLED 😈' : ''})
                 </button>
             )}
          </div>
@@ -587,8 +602,22 @@ export default function Game({ roomCode, username, sessionToken, setView, initia
                 </div>
              )}
              {stats.stacked_cards > 0 && (
-                <div className="text-[10px] sm:text-sm text-unoRed font-bold animate-bounce">
-                    +{stats.stacked_cards}
+                <div className="flex flex-col gap-0.5">
+                    <div className="text-[10px] sm:text-sm text-unoRed font-bold animate-bounce flex items-center gap-1">
+                        <span>+{stats.stacked_cards}</span>
+                        {stats.no_mercy_doubled && (
+                            <span className="text-[7px] sm:text-[9px] bg-red-600/40 text-red-300 border border-red-500/50 px-1 py-0.5 rounded font-black tracking-wider uppercase">
+                                DOUBLED 😈
+                            </span>
+                        )}
+                    </div>
+                    {stats.no_mercy_doubled && (
+                        <div className="text-[8px] sm:text-[10px] text-red-400 font-bold leading-tight">
+                            {stats.min_stack_draw_value > 10 
+                                ? '🚫 Unstackable' 
+                                : `Req: +${stats.min_stack_draw_value}+`}
+                        </div>
+                    )}
                 </div>
              )}
              {isMyTurn && (
@@ -598,6 +627,28 @@ export default function Game({ roomCode, username, sessionToken, setView, initia
              )}
          </div>
       </div>
+
+      {/* No Mercy Doubled Active Alert Banner */}
+      {stats.no_mercy_doubled && stats.stacked_cards > 0 && (
+         <div className="w-full max-w-lg mx-auto z-30 mb-2 px-3 sm:px-4 py-1.5 rounded-2xl bg-gradient-to-r from-red-950/90 via-black/80 to-red-950/90 border-2 border-red-500/80 shadow-[0_0_25px_rgba(239,68,68,0.35)] flex items-center justify-between gap-2 animate-pulse">
+            <div className="flex items-center gap-2">
+               <span className="text-base sm:text-xl">😈</span>
+               <div className="flex flex-col text-left">
+                  <span className="text-[10px] sm:text-xs font-black text-red-400 tracking-wider uppercase">
+                     NO MERCY DOUBLED USED (+{stats.stacked_cards})
+                  </span>
+                  <span className="text-[9px] sm:text-[11px] font-semibold text-slate-300">
+                     {stats.min_stack_draw_value > 10 
+                        ? 'Cannot be stacked (Max +10 in deck) • Next player must draw!' 
+                        : `Next player must play +${stats.min_stack_draw_value} or higher to stack!`}
+                  </span>
+               </div>
+            </div>
+            <span className="px-2 py-0.5 rounded bg-red-600 text-white text-[9px] sm:text-[10px] font-black uppercase tracking-widest shrink-0">
+               {stats.min_stack_draw_value > 10 ? 'MUST DRAW' : `+${stats.min_stack_draw_value}+ STACK`}
+            </span>
+         </div>
+      )}
 
       {/* Bottom - Player Hand */}
       <div className="w-full mt-2 flex flex-col items-center z-20 relative">
